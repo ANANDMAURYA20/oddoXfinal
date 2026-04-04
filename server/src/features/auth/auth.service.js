@@ -3,13 +3,29 @@ const jwt = require("jsonwebtoken");
 const prisma = require("../../config/db");
 const env = require("../../config/env");
 const ApiError = require("../../utils/ApiError");
+const { sendOtpEmail } = require("../../utils/mail.service");
 
 /**
  * Register a new tenant + admin user.
  * Creates: Tenant → User (TENANT_ADMIN) → Default Settings
  */
-const register = async ({ name, email, password, businessName, phone }) => {
-  // Check if email already taken
+const register = async ({ name, email, password, businessName, phone, otpCode }) => {
+  // Verify OTP first
+  const otpRecord = await prisma.otp.findFirst({
+    where: {
+      email,
+      code: otpCode,
+      type: "SIGNUP",
+      expiresAt: { gt: new Date() },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!otpRecord) {
+    throw ApiError.badRequest("Invalid or expired verification code");
+  }
+
+  // Check if email already taken (redundant but safe)
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     throw ApiError.conflict("Email is already registered");
@@ -48,6 +64,11 @@ const register = async ({ name, email, password, businessName, phone }) => {
     return { user, tenant };
   });
 
+  // Delete the OTP once verified and registration is complete
+  await prisma.otp.deleteMany({
+    where: { email, type: "SIGNUP" },
+  });
+
   const token = generateToken(result.user);
 
   return {
@@ -56,6 +77,74 @@ const register = async ({ name, email, password, businessName, phone }) => {
     tenant: { id: result.tenant.id, name: result.tenant.name },
     onboardingCompleted: false,
   };
+};
+
+/**
+ * Request OTP for SIGNUP or FORGOT_PASSWORD
+ */
+const requestOTP = async ({ email, type }) => {
+  // If signup, check if email exists
+  if (type === "SIGNUP") {
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      throw ApiError.conflict("Email is already registered");
+    }
+  } else if (type === "FORGOT_PASSWORD") {
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (!existing) {
+      throw ApiError.notFound("Email not found");
+    }
+  }
+
+  // Generate 6-digit OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+  // Upsert OTP
+  await prisma.otp.create({
+    data: {
+      email,
+      code: otp,
+      type,
+      expiresAt,
+    },
+  });
+
+  // Send Email
+  await sendOtpEmail(email, otp, type);
+
+  return { message: "OTP sent successfully" };
+};
+
+/**
+ * Reset password using OTP
+ */
+const resetPassword = async ({ email, otp, newPassword }) => {
+  const otpRecord = await prisma.otp.findFirst({
+    where: {
+      email,
+      code: otp,
+      type: "FORGOT_PASSWORD",
+      expiresAt: { gt: new Date() },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!otpRecord) {
+    throw ApiError.badRequest("Invalid or expired OTP");
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+  await prisma.user.update({
+    where: { email },
+    data: { password: hashedPassword },
+  });
+
+  // Cleanup OTPs
+  await prisma.otp.deleteMany({ where: { email, type: "FORGOT_PASSWORD" } });
+
+  return { success: true };
 };
 
 /**
@@ -156,4 +245,4 @@ function sanitizeUser(user) {
   return rest;
 }
 
-module.exports = { register, login, getMe, changePassword };
+module.exports = { register, login, getMe, changePassword, requestOTP, resetPassword };

@@ -367,3 +367,23 @@ model KdsStation {
   @@unique([name, tenantId])
   @@index([tenantId])
 }
+
+// ─────────────────────────────────────────────
+// OTP & Verification
+// ─────────────────────────────────────────────
+
+enum OtpType {
+  SIGNUP
+  FORGOT_PASSWORD
+}
+
+model Otp {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  type      OtpType
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}

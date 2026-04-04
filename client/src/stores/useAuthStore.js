@@ -10,10 +10,10 @@ const useAuthStore = create((set) => ({
   loading: false,
   error: null,
 
-  register: async ({ name, email, password, businessName, phone }) => {
+  register: async ({ name, email, password, businessName, phone, otpCode }) => {
     set({ loading: true, error: null });
     try {
-      const { data } = await api.post('/auth/register', { name, email, password, businessName, phone });
+      const { data } = await api.post('/auth/register', { name, email, password, businessName, phone, otpCode });
       const { token, user, onboardingCompleted } = data.data;
 
       localStorage.setItem('pos_token', token);
@@ -26,6 +26,32 @@ const useAuthStore = create((set) => ({
       return { success: true };
     } catch (err) {
       const message = err.response?.data?.message || 'Registration failed';
+      set({ loading: false, error: message });
+      return { success: false, message };
+    }
+  },
+
+  requestOTP: async (email, type) => {
+    set({ loading: true, error: null });
+    try {
+      await api.post('/auth/request-otp', { email, type });
+      set({ loading: false });
+      return { success: true };
+    } catch (err) {
+      const message = err.response?.data?.message || 'Failed to send OTP';
+      set({ loading: false, error: message });
+      return { success: false, message };
+    }
+  },
+
+  resetPassword: async (email, otp, newPassword) => {
+    set({ loading: true, error: null });
+    try {
+      await api.post('/auth/reset-password', { email, otp, newPassword });
+      set({ loading: false });
+      return { success: true };
+    } catch (err) {
+      const message = err.response?.data?.message || 'Failed to reset password';
       set({ loading: false, error: message });
       return { success: false, message };
     }

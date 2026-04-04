@@ -3,11 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, ArrowRight, ShoppingCart } from 'lucide-react';
 import { motion } from 'framer-motion';
 import useAuthStore from '../stores/useAuthStore';
+import ForgotPasswordModal from '../components/auth/ForgotPasswordModal';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
   const { login, loading, error } = useAuthStore();
   const navigate = useNavigate();
 
@@ -89,9 +91,18 @@ export default function LoginPage() {
 
             {/* Password */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                Password
-              </label>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="block text-sm font-medium text-slate-700">
+                  Password
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsForgotModalOpen(true)}
+                  className="text-xs font-medium text-brand-600 hover:text-brand-700"
+                >
+                  Forgot password?
+                </button>
+              </div>
               <div className="relative">
                 <input
                   id="login-password"
@@ -143,6 +154,11 @@ export default function LoginPage() {
           OddoPOS &copy; {new Date().getFullYear()} &middot; Powered by OddoXindus
         </p>
       </motion.div>
+
+      <ForgotPasswordModal
+        isOpen={isForgotModalOpen}
+        onClose={() => setIsForgotModalOpen(false)}
+      />
     </div>
   );
 }
