@@ -1,17 +1,30 @@
 @import "tailwindcss";
 
 @theme {
-  /* ── Brand palette ── */
-  --color-brand-50: #eef2ff;
-  --color-brand-100: #e0e7ff;
-  --color-brand-200: #c7d2fe;
-  --color-brand-300: #a5b4fc;
-  --color-brand-400: #818cf8;
-  --color-brand-500: #6366f1;
-  --color-brand-600: #4f46e5;
-  --color-brand-700: #4338ca;
-  --color-brand-800: #3730a3;
-  --color-brand-900: #312e81;
+  /* ── Primary color config ──────────────────────────────
+     Change these two values to re-theme the entire app:
+       --primary-hue    → color angle (0-360) on the oklch wheel
+       --primary-chroma  → saturation (0 = grey, 0.3 = vivid)
+
+     Quick reference hues:
+       0   = Red        30  = Orange     60  = Yellow
+       140 = Green      210 = Cyan       264 = Indigo (default)
+       280 = Purple     330 = Pink
+  ──────────────────────────────────────────────────────── */
+  --primary-hue: 264;
+  --primary-chroma: 0.14;
+
+  /* ── Brand palette (auto-generated from primary color) ── */
+  --color-brand-50:  oklch(0.97 calc(var(--primary-chroma) * 0.25) var(--primary-hue));
+  --color-brand-100: oklch(0.93 calc(var(--primary-chroma) * 0.35) var(--primary-hue));
+  --color-brand-200: oklch(0.87 calc(var(--primary-chroma) * 0.55) var(--primary-hue));
+  --color-brand-300: oklch(0.79 calc(var(--primary-chroma) * 0.75) var(--primary-hue));
+  --color-brand-400: oklch(0.70 calc(var(--primary-chroma) * 0.90) var(--primary-hue));
+  --color-brand-500: oklch(0.62 var(--primary-chroma)              var(--primary-hue));
+  --color-brand-600: oklch(0.55 var(--primary-chroma)              var(--primary-hue));
+  --color-brand-700: oklch(0.48 var(--primary-chroma)              var(--primary-hue));
+  --color-brand-800: oklch(0.40 var(--primary-chroma)              var(--primary-hue));
+  --color-brand-900: oklch(0.31 var(--primary-chroma)              var(--primary-hue));
 
   --color-surface: #ffffff;
   --color-surface-raised: #f8fafc;

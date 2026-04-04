@@ -12,8 +12,10 @@ router.use(auth, authorize("SUPER_ADMIN"));
 
 router.get("/", controller.listTenants);
 router.get("/admins", controller.listTenantAdmins);
+router.patch("/admins/:id/toggle-status", controller.toggleAdminStatus);
 router.get("/:id", controller.getTenantById);
 router.patch("/:id", validate(updateTenantSchema), controller.updateTenant);
 router.delete("/:id", controller.deleteTenant);
+router.delete("/:id/permanent", controller.hardDeleteTenant);
 
 module.exports = router;

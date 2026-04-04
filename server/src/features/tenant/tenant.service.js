@@ -85,6 +85,38 @@ const deleteTenant = async (id) => {
 };
 
 /**
+ * Permanently delete a tenant and all related data.
+ */
+const hardDeleteTenant = async (id) => {
+  const tenant = await prisma.tenant.findUnique({ where: { id } });
+  if (!tenant) {
+    throw ApiError.notFound("Tenant not found");
+  }
+
+  // Cascade delete is configured in the schema, so this removes everything
+  await prisma.tenant.delete({ where: { id } });
+};
+
+/**
+ * Toggle a tenant admin's active status.
+ */
+const toggleAdminStatus = async (adminId) => {
+  const user = await prisma.user.findUnique({ where: { id: adminId } });
+  if (!user) {
+    throw ApiError.notFound("Admin not found");
+  }
+  if (user.role !== "TENANT_ADMIN") {
+    throw ApiError.badRequest("User is not a tenant admin");
+  }
+
+  return prisma.user.update({
+    where: { id: adminId },
+    data: { isActive: !user.isActive },
+    select: { id: true, name: true, email: true, isActive: true },
+  });
+};
+
+/**
  * List all tenant admins with their tenant info.
  */
 const listTenantAdmins = async ({ page = 1, limit = 20, search }) => {
@@ -143,4 +175,4 @@ const listTenantAdmins = async ({ page = 1, limit = 20, search }) => {
   };
 };
 
-module.exports = { listTenants, getTenantById, updateTenant, deleteTenant, listTenantAdmins };
+module.exports = { listTenants, getTenantById, updateTenant, deleteTenant, hardDeleteTenant, toggleAdminStatus, listTenantAdmins };

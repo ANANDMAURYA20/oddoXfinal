@@ -16,7 +16,13 @@ export default function LoginPage() {
     const result = await login(email, password);
     if (result.success) {
       const currentUser = useAuthStore.getState().user;
-      navigate(currentUser?.role === 'SUPER_ADMIN' ? '/admin' : '/pos');
+      if (currentUser?.role === 'SUPER_ADMIN') {
+        navigate('/admin');
+      } else if (!result.onboardingCompleted) {
+        navigate('/onboarding');
+      } else {
+        navigate('/pos');
+      }
     }
   };
 

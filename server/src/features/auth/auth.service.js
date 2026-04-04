@@ -54,6 +54,7 @@ const register = async ({ name, email, password, businessName, phone }) => {
     token,
     user: sanitizeUser(result.user),
     tenant: { id: result.tenant.id, name: result.tenant.name },
+    onboardingCompleted: false,
   };
 };
 
@@ -63,7 +64,11 @@ const register = async ({ name, email, password, businessName, phone }) => {
 const login = async ({ email, password }) => {
   const user = await prisma.user.findUnique({
     where: { email },
-    include: { tenant: { select: { id: true, name: true, isActive: true } } },
+    include: {
+      tenant: {
+        select: { id: true, name: true, isActive: true, settings: { select: { onboardingCompleted: true } } },
+      },
+    },
   });
 
   if (!user) {
@@ -86,10 +91,13 @@ const login = async ({ email, password }) => {
 
   const token = generateToken(user);
 
+  const onboardingCompleted = user.tenant?.settings?.onboardingCompleted ?? true;
+
   return {
     token,
     user: sanitizeUser(user),
-    tenant: user.tenant || null,
+    tenant: user.tenant ? { id: user.tenant.id, name: user.tenant.name } : null,
+    onboardingCompleted,
   };
 };
 

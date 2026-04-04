@@ -222,12 +222,18 @@ model Discount {
 // ─────────────────────────────────────────────
 
 model Settings {
-  id           String @id @default(uuid())
-  storeName    String @default("")
-  currency     String @default("INR")
-  taxRate      Float  @default(0)
-  taxLabel     String @default("GST")
-  receiptNote  String @default("Thank you for shopping with us!")
+  id           String   @id @default(uuid())
+  storeName    String   @default("")
+  currency     String   @default("INR")
+  taxRate      Float    @default(0)
+  taxLabel     String   @default("GST")
+  receiptNote  String   @default("Thank you for shopping with us!")
+
+  // Onboarding fields
+  paymentMethods String[] @default([])
+  upiId          String   @default("")
+  totalTables    Int      @default(0)
+  onboardingCompleted Boolean @default(false)
 
   tenantId String @unique
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
