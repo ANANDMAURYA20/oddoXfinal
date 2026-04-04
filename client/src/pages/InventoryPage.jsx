@@ -13,13 +13,20 @@ export default function InventoryPage() {
   const [editing, setEditing] = useState(null);
   const queryClient = useQueryClient();
 
+  // Map frontend status filter to backend isActive param
+  const isActiveParam = useMemo(() => {
+    if (statusFilter === 'active') return 'true';
+    if (statusFilter === 'inactive') return 'false';
+    return 'all';
+  }, [statusFilter]);
+
   const { 
     data: productData, 
     isLoading: loadingProducts,
     isFetching: fetchingProducts 
   } = useProducts({ 
-    status: statusFilter,
-    search: search // Note: in a high-traffic app, we might want to debounce this
+    isActive: isActiveParam, // Backend expects 'isActive'
+    search: search
   });
 
   const { 
@@ -54,12 +61,10 @@ export default function InventoryPage() {
     try {
       await api.delete(`/categories/${id}`);
       queryClient.invalidateQueries({ queryKey: ['inventory', 'categories'] });
-      // Also invalidate products since they might refer to this category
       queryClient.invalidateQueries({ queryKey: ['inventory', 'products'] });
     } catch (err) { alert(err.response?.data?.message || 'Failed'); }
   };
 
-  // The search is handled by useProducts queryKey, so we don't need additional local filtering here
   const displayProducts = products;
 
   return (
@@ -71,7 +76,7 @@ export default function InventoryPage() {
             <h1 className="font-display text-2xl font-bold text-slate-900">Inventory</h1>
             <p className="mt-0.5 text-sm text-slate-500">Manage your products and categories</p>
           </div>
-          {isRefreshing && !loading && (
+          {isRefreshing && !isInitialLoading && (
             <div className="flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-[10px] font-semibold text-brand-600 animate-pulse">
               <RefreshCcw size={10} className="animate-spin-slow" />
               Refreshing...
@@ -289,7 +294,6 @@ export default function InventoryPage() {
             onSaved={() => {
               setShowModal(false);
               setEditing(null);
-              // Invalidate cache instead of manual fetch
               queryClient.invalidateQueries({ queryKey: ['inventory'] });
             }}
           />
