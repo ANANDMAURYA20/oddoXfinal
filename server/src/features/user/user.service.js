@@ -15,11 +15,14 @@ const createUser = async (tenantId, data) => {
 
   const user = await prisma.user.create({
     data: {
-      ...data,
+      name: data.name,
+      email: data.email,
       password: hashedPassword,
+      role: data.role,
+      kdsStationId: data.kdsStationId || null,
       tenantId,
     },
-    select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+    select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true, kdsStationId: true, kdsStation: { select: { id: true, name: true } } },
   });
 
   return user;
@@ -39,7 +42,7 @@ const listUsers = async (tenantId, { page = 1, limit = 20 }) => {
       skip,
       take: limit,
       orderBy: { createdAt: "desc" },
-      select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true, kdsStationId: true, kdsStation: { select: { id: true, name: true } } },
     }),
     prisma.user.count({ where }),
   ]);
@@ -56,7 +59,7 @@ const listUsers = async (tenantId, { page = 1, limit = 20 }) => {
 const getUserById = async (tenantId, userId) => {
   const user = await prisma.user.findFirst({
     where: { id: userId, tenantId },
-    select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+    select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true, kdsStationId: true, kdsStation: { select: { id: true, name: true } } },
   });
 
   if (!user) {
@@ -78,7 +81,7 @@ const updateUser = async (tenantId, userId, data) => {
   return prisma.user.update({
     where: { id: userId },
     data,
-    select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+    select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true, kdsStationId: true, kdsStation: { select: { id: true, name: true } } },
   });
 };
 

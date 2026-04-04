@@ -43,8 +43,24 @@ const initSocketIO = (httpServer) => {
     // This provides our Multi-Tenant isolation at the WebSocket level
     const tenantRoom = `tenant_${socket.tenantId}`;
     socket.join(tenantRoom);
-    
+
     logger.info(`🏠 Socket ${socket.id} joined room: ${tenantRoom}`);
+
+    // If KDS_STAFF with a station assignment, also join the station-specific room
+    if (socket.user.kdsStationId) {
+      const stationRoom = `kds_${socket.user.kdsStationId}`;
+      socket.join(stationRoom);
+      logger.info(`🍳 Socket ${socket.id} joined KDS room: ${stationRoom}`);
+    }
+
+    // Allow clients to join a specific KDS station room dynamically
+    socket.on("kds:join-station", (stationId) => {
+      if (stationId) {
+        const stationRoom = `kds_${stationId}`;
+        socket.join(stationRoom);
+        logger.info(`🍳 Socket ${socket.id} joined KDS room: ${stationRoom}`);
+      }
+    });
 
     socket.on("disconnect", () => {
       logger.info(`🔌 Socket disconnected: ${socket.id}`);
@@ -63,4 +79,13 @@ const emitToTenant = (tenantId, eventName, payload) => {
   }
 };
 
-module.exports = { initSocketIO, emitToTenant };
+// Helper to emit events to a specific KDS station room
+const emitToKdsStation = (stationId, eventName, payload) => {
+  if (io) {
+    const room = `kds_${stationId}`;
+    io.to(room).emit(eventName, payload);
+    logger.info(`🍳 Emitted '${eventName}' to KDS room ${room}`);
+  }
+};
+
+module.exports = { initSocketIO, emitToTenant, emitToKdsStation };

@@ -13,6 +13,8 @@ import ReportsPage from './pages/ReportsPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import RegisterPage from './pages/RegisterPage';
 import OnboardingPage from './pages/OnboardingPage';
+import KDSLoginPage from './pages/KDSLoginPage';
+import KDSSettingsPage from './pages/KDSSettingsPage';
 
 export default function App() {
   return (
@@ -21,6 +23,7 @@ export default function App() {
         {/* Public */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/kds-login" element={<KDSLoginPage />} />
         <Route
           path="/onboarding"
           element={
@@ -104,6 +107,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <DashboardLayout><SettingsPage /></DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/kds-settings"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout><KDSSettingsPage /></DashboardLayout>
             </ProtectedRoute>
           }
         />

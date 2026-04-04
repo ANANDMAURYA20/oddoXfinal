@@ -21,6 +21,7 @@ enum Role {
   SUPER_ADMIN
   TENANT_ADMIN
   CASHIER
+  KDS_STAFF
 }
 
 enum OrderStatus {
@@ -66,13 +67,14 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users      User[]
-  products   Product[]
-  categories Category[]
-  orders     Order[]
-  customers  Customer[]
-  discounts  Discount[]
-  settings   Settings?
+  users       User[]
+  products    Product[]
+  categories  Category[]
+  orders      Order[]
+  customers   Customer[]
+  discounts   Discount[]
+  settings    Settings?
+  kdsStations KdsStation[]
 }
 
 model User {
@@ -87,6 +89,9 @@ model User {
 
   tenantId String?
   tenant   Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  kdsStationId String?
+  kdsStation   KdsStation? @relation(fields: [kdsStationId], references: [id], onDelete: SetNull)
 
   orders Order[]
 
@@ -237,4 +242,25 @@ model Settings {
 
   tenantId String @unique
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────
+// Kitchen Display Stations
+// ─────────────────────────────────────────────
+
+model KdsStation {
+  id          String   @id @default(uuid())
+  name        String
+  categoryIds String[] @default([])
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  users User[]
+
+  @@unique([name, tenantId])
+  @@index([tenantId])
 }

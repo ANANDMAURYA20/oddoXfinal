@@ -8,13 +8,14 @@ const createProduct = asyncHandler(async (req, res) => {
 });
 
 const listProducts = asyncHandler(async (req, res) => {
-  const { page, limit, search, categoryId, lowStock } = req.query;
+  const { page, limit, search, categoryId, lowStock, isActive } = req.query;
   const result = await productService.listProducts(req.tenantId, {
     page: parseInt(page) || 1,
     limit: parseInt(limit) || 20,
     search,
     categoryId,
     lowStock,
+    isActive,
   });
   res.status(200).json(new ApiResponse(200, result, "Products fetched"));
 });

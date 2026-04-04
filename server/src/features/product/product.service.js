@@ -35,9 +35,9 @@ const createProduct = async (tenantId, data) => {
 /**
  * List products with search, category filter, low stock filter, and pagination.
  */
-const listProducts = async (tenantId, { page = 1, limit = 20, search, categoryId, lowStock }) => {
+const listProducts = async (tenantId, { page = 1, limit = 20, search, categoryId, lowStock, isActive }) => {
   const hashKey = `tenant:${tenantId}:products_cache`;
-  const fieldKey = JSON.stringify({ page, limit, search, categoryId, lowStock });
+  const fieldKey = JSON.stringify({ page, limit, search, categoryId, lowStock, isActive });
 
   // 1. Check Redis Cache
   const cachedData = await cache.hGet(hashKey, fieldKey);
@@ -48,6 +48,15 @@ const listProducts = async (tenantId, { page = 1, limit = 20, search, categoryId
   const skip = (page - 1) * limit;
 
   const where = { tenantId };
+
+  // Filter by active status: "all" shows everything, "false" shows inactive, default shows active only
+  if (isActive === "all") {
+    // no filter — show all products
+  } else if (isActive === "false") {
+    where.isActive = false;
+  } else {
+    where.isActive = true;
+  }
 
   if (search) {
     where.OR = [

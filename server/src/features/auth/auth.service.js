@@ -68,6 +68,7 @@ const login = async ({ email, password }) => {
       tenant: {
         select: { id: true, name: true, isActive: true, settings: { select: { onboardingCompleted: true } } },
       },
+      kdsStation: { select: { id: true, name: true, categoryIds: true } },
     },
   });
 
@@ -144,7 +145,7 @@ const changePassword = async (userId, { currentPassword, newPassword }) => {
 
 function generateToken(user) {
   return jwt.sign(
-    { id: user.id, role: user.role, tenantId: user.tenantId },
+    { id: user.id, role: user.role, tenantId: user.tenantId, kdsStationId: user.kdsStationId || null },
     env.JWT_SECRET,
     { expiresIn: env.JWT_EXPIRES_IN }
   );
