@@ -11,6 +11,7 @@ const router = Router();
 router.use(auth, authorize("SUPER_ADMIN"));
 
 router.get("/", controller.listTenants);
+router.get("/admins", controller.listTenantAdmins);
 router.get("/:id", controller.getTenantById);
 router.patch("/:id", validate(updateTenantSchema), controller.updateTenant);
 router.delete("/:id", controller.deleteTenant);

@@ -9,6 +9,26 @@ const useAuthStore = create((set) => ({
   loading: false,
   error: null,
 
+  register: async ({ name, email, password, businessName, phone }) => {
+    set({ loading: true, error: null });
+    try {
+      const { data } = await api.post('/auth/register', { name, email, password, businessName, phone });
+      const { token, user } = data.data;
+
+      localStorage.setItem('pos_token', token);
+      localStorage.setItem('pos_user', JSON.stringify(user));
+
+      connectSocket(token);
+
+      set({ user, token, isAuthenticated: true, loading: false });
+      return { success: true };
+    } catch (err) {
+      const message = err.response?.data?.message || 'Registration failed';
+      set({ loading: false, error: message });
+      return { success: false, message };
+    }
+  },
+
   login: async (email, password) => {
     set({ loading: true, error: null });
     try {

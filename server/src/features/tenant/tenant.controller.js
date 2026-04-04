@@ -27,4 +27,14 @@ const deleteTenant = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, null, "Tenant deactivated"));
 });
 
-module.exports = { listTenants, getTenantById, updateTenant, deleteTenant };
+const listTenantAdmins = asyncHandler(async (req, res) => {
+  const { page, limit, search } = req.query;
+  const result = await tenantService.listTenantAdmins({
+    page: parseInt(page) || 1,
+    limit: parseInt(limit) || 20,
+    search,
+  });
+  res.status(200).json(new ApiResponse(200, result, "Tenant admins fetched"));
+});
+
+module.exports = { listTenants, getTenantById, updateTenant, deleteTenant, listTenantAdmins };
