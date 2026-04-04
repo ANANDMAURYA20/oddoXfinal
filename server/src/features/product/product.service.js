@@ -1,5 +1,13 @@
 const prisma = require("../../config/db");
 const ApiError = require("../../utils/ApiError");
+const { cache } = require("../../config/redis");
+
+/**
+ * Helper to invalidate tenant product cache
+ */
+const invalidateProductCache = async (tenantId) => {
+  await cache.invalidate(`tenant:${tenantId}:products_cache`);
+};
 
 /**
  * Create a product under the current tenant.
@@ -15,16 +23,28 @@ const createProduct = async (tenantId, data) => {
     }
   }
 
-  return prisma.product.create({
+  const product = await prisma.product.create({
     data: { ...data, tenantId },
     include: { category: { select: { id: true, name: true } } },
   });
+
+  await invalidateProductCache(tenantId);
+  return product;
 };
 
 /**
  * List products with search, category filter, low stock filter, and pagination.
  */
 const listProducts = async (tenantId, { page = 1, limit = 20, search, categoryId, lowStock }) => {
+  const hashKey = `tenant:${tenantId}:products_cache`;
+  const fieldKey = JSON.stringify({ page, limit, search, categoryId, lowStock });
+
+  // 1. Check Redis Cache
+  const cachedData = await cache.hGet(hashKey, fieldKey);
+  if (cachedData) {
+    return cachedData;
+  }
+
   const skip = (page - 1) * limit;
 
   const where = { tenantId };
@@ -41,10 +61,6 @@ const listProducts = async (tenantId, { page = 1, limit = 20, search, categoryId
   }
 
   if (lowStock === "true") {
-    // Products where stock <= lowStock threshold
-    where.stock = { lte: prisma.product.fields?.lowStock };
-    // Prisma doesn't support field-to-field comparison directly, so we use raw
-    // Simpler approach: just filter where stock <= 5 (or use a fixed threshold)
     where.stock = { lte: 5 };
   }
 
@@ -59,10 +75,15 @@ const listProducts = async (tenantId, { page = 1, limit = 20, search, categoryId
     prisma.product.count({ where }),
   ]);
 
-  return {
+  const result = {
     products,
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   };
+
+  // 2. Save to Cache (expires in 1 hour)
+  await cache.hSet(hashKey, fieldKey, result, 3600);
+
+  return result;
 };
 
 /**
@@ -90,11 +111,14 @@ const updateProduct = async (tenantId, id, data) => {
     throw ApiError.notFound("Product not found");
   }
 
-  return prisma.product.update({
+  const updatedProduct = await prisma.product.update({
     where: { id },
     data,
     include: { category: { select: { id: true, name: true } } },
   });
+
+  await invalidateProductCache(tenantId);
+  return updatedProduct;
 };
 
 /**
@@ -106,10 +130,13 @@ const deleteProduct = async (tenantId, id) => {
     throw ApiError.notFound("Product not found");
   }
 
-  return prisma.product.update({
+  const deletedProduct = await prisma.product.update({
     where: { id },
     data: { isActive: false },
   });
+
+  await invalidateProductCache(tenantId);
+  return deletedProduct;
 };
 
 /**
@@ -121,11 +148,14 @@ const updateStock = async (tenantId, id, { stock }) => {
     throw ApiError.notFound("Product not found");
   }
 
-  return prisma.product.update({
+  const updatedStock = await prisma.product.update({
     where: { id },
     data: { stock },
     select: { id: true, name: true, stock: true, lowStock: true },
   });
+
+  await invalidateProductCache(tenantId);
+  return updatedStock;
 };
 
 module.exports = { createProduct, listProducts, getProductById, updateProduct, deleteProduct, updateStock };

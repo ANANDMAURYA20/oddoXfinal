@@ -1,5 +1,6 @@
 const prisma = require("../../config/db");
 const ApiError = require("../../utils/ApiError");
+const { emitToTenant } = require("../../config/socket");
 
 /**
  * Generate a unique order number: ORD-YYYYMMDD-XXXXX
@@ -75,7 +76,7 @@ const createOrder = async (tenantId, cashierId, data) => {
         tax,
         totalAmount,
         paymentMethod,
-        status: "COMPLETED",
+        status: "PENDING", // Start in PENDING for Kitchen Display
         paymentStatus: "PAID",
         note,
         cashierId,
@@ -94,6 +95,9 @@ const createOrder = async (tenantId, cashierId, data) => {
 
     return createdOrder;
   });
+
+  // Emit event to connected Socket.io clients (Kitchen Display)
+  emitToTenant(tenantId, "order:new", order);
 
   return order;
 };
@@ -166,10 +170,15 @@ const updateOrderStatus = async (tenantId, id, { status }) => {
     throw ApiError.notFound("Order not found");
   }
 
-  return prisma.order.update({
+  const updatedOrder = await prisma.order.update({
     where: { id },
     data: { status },
   });
+
+  // Emit event to update KDS screens
+  emitToTenant(tenantId, "order:updated", updatedOrder);
+
+  return updatedOrder;
 };
 
 /**
@@ -189,7 +198,7 @@ const refundOrder = async (tenantId, id) => {
     throw ApiError.badRequest("Order has already been refunded");
   }
 
-  return prisma.$transaction(async (tx) => {
+  const refundedOrder = await prisma.$transaction(async (tx) => {
     // Restore stock for each item
     for (const item of order.items) {
       await tx.product.update({
@@ -204,6 +213,10 @@ const refundOrder = async (tenantId, id) => {
       data: { status: "REFUNDED", paymentStatus: "REFUNDED" },
     });
   });
+
+  emitToTenant(tenantId, "order:updated", refundedOrder);
+
+  return refundedOrder;
 };
 
 module.exports = { createOrder, listOrders, getOrderById, updateOrderStatus, refundOrder };
