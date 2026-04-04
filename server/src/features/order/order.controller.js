@@ -8,13 +8,14 @@ const createOrder = asyncHandler(async (req, res) => {
 });
 
 const listOrders = asyncHandler(async (req, res) => {
-  const { page, limit, status, startDate, endDate } = req.query;
+  const { page, limit, status, startDate, endDate, cashierId } = req.query;
   const result = await orderService.listOrders(req.tenantId, {
     page: parseInt(page) || 1,
     limit: parseInt(limit) || 20,
     status,
     startDate,
     endDate,
+    cashierId,
   });
   res.status(200).json(new ApiResponse(200, result, "Orders fetched"));
 });

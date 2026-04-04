@@ -73,8 +73,9 @@ model Tenant {
   orders      Order[]
   customers   Customer[]
   discounts   Discount[]
-  settings    Settings?
-  kdsStations KdsStation[]
+  settings         Settings?
+  kdsStations      KdsStation[]
+  registerSessions RegisterSession[]
 }
 
 model User {
@@ -94,6 +95,7 @@ model User {
   kdsStation   KdsStation? @relation(fields: [kdsStationId], references: [id], onDelete: SetNull)
 
   orders Order[]
+  registerSessions RegisterSession[] @relation("registerSessions")
 
   @@index([tenantId])
 }
@@ -242,6 +244,44 @@ model Settings {
 
   tenantId String @unique
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────
+// POS Register Sessions (Open/Close Day)
+// ─────────────────────────────────────────────
+
+enum RegisterStatus {
+  OPEN
+  CLOSED
+}
+
+model RegisterSession {
+  id              String         @id @default(uuid())
+  openingCash     Float          @default(0)
+  closingCash     Float?
+  status          RegisterStatus @default(OPEN)
+  openedAt        DateTime       @default(now())
+  closedAt        DateTime?
+  closingNote     String?
+
+  // Snapshot at close time
+  totalCashSales  Float?
+  totalCardSales  Float?
+  totalUpiSales   Float?
+  totalOrders     Int?
+  totalRevenue    Float?
+  expectedCash    Float?         // openingCash + cashSales
+  cashDifference  Float?         // actual closingCash - expectedCash
+
+  cashierId String
+  cashier   User   @relation("registerSessions", fields: [cashierId], references: [id])
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([cashierId])
+  @@index([openedAt])
 }
 
 // ─────────────────────────────────────────────

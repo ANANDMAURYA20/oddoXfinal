@@ -6,6 +6,14 @@ const useCartStore = create((set, get) => ({
   discountCode: '',
   taxRate: 0,
 
+  // Customer info
+  customerName: '',
+  customerPhone: '',
+  customerId: null,
+
+  setCustomer: (name, phone, id = null) => set({ customerName: name, customerPhone: phone, customerId: id }),
+  clearCustomer: () => set({ customerName: '', customerPhone: '', customerId: null }),
+
   // Order type & table management
   orderType: 'takeaway', // 'dine-in' | 'takeaway'
   activeTable: null, // table number currently being served
@@ -187,7 +195,7 @@ const useCartStore = create((set, get) => ({
     if (tbl) {
       get().releaseTable(tbl);
     }
-    set({ items: [], discount: 0, discountCode: '', activeTable: null });
+    set({ items: [], discount: 0, discountCode: '', activeTable: null, customerName: '', customerPhone: '', customerId: null });
   },
 
   // Computed

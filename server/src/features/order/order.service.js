@@ -133,13 +133,17 @@ const createOrder = async (tenantId, cashierId, data) => {
 /**
  * List orders with filters (date range, status) and pagination.
  */
-const listOrders = async (tenantId, { page = 1, limit = 20, status, startDate, endDate }) => {
+const listOrders = async (tenantId, { page = 1, limit = 20, status, startDate, endDate, cashierId }) => {
   const skip = (page - 1) * limit;
 
   const where = { tenantId };
 
   if (status) {
     where.status = status;
+  }
+
+  if (cashierId) {
+    where.cashierId = cashierId;
   }
 
   if (startDate || endDate) {
