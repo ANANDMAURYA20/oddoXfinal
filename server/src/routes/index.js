@@ -11,6 +11,8 @@ const reportRoutes = require("../features/report/report.routes");
 const discountRoutes = require("../features/discount/discount.routes");
 const settingsRoutes = require("../features/settings/settings.routes");
 const kdsRoutes = require("../features/kds/kds.routes");
+const registerRoutes = require("../features/register/register.routes");
+const customerOrderRoutes = require("../features/customer-order/customer-order.routes");
 
 const router = Router();
 
@@ -25,5 +27,7 @@ router.use("/reports", reportRoutes);
 router.use("/discounts", discountRoutes);
 router.use("/settings", settingsRoutes);
 router.use("/kds-stations", kdsRoutes);
+router.use("/register", registerRoutes);
+router.use("/customer-order", customerOrderRoutes); // Public - no auth
 
 module.exports = router;

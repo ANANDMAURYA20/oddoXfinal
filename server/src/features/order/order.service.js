@@ -1,6 +1,6 @@
 const prisma = require("../../config/db");
 const ApiError = require("../../utils/ApiError");
-const { emitToTenant, emitToKdsStation } = require("../../config/socket");
+const { emitToTenant, emitToKdsStation, emitToOrder } = require("../../config/socket");
 
 /**
  * Generate a unique order number: ORD-YYYYMMDD-XXXXX
@@ -133,13 +133,17 @@ const createOrder = async (tenantId, cashierId, data) => {
 /**
  * List orders with filters (date range, status) and pagination.
  */
-const listOrders = async (tenantId, { page = 1, limit = 20, status, startDate, endDate }) => {
+const listOrders = async (tenantId, { page = 1, limit = 20, status, startDate, endDate, cashierId }) => {
   const skip = (page - 1) * limit;
 
   const where = { tenantId };
 
   if (status) {
     where.status = status;
+  }
+
+  if (cashierId) {
+    where.cashierId = cashierId;
   }
 
   if (startDate || endDate) {
@@ -209,6 +213,13 @@ const updateOrderStatus = async (tenantId, id, { status }) => {
 
   // Emit event to update KDS screens
   emitToTenant(tenantId, "order:updated", updatedOrder);
+
+  // Emit to customer tracking room (for QR orders)
+  emitToOrder(id, "order:status-changed", {
+    orderId: id,
+    status: updatedOrder.status,
+    updatedAt: updatedOrder.updatedAt,
+  });
 
   // Also emit to specific KDS station rooms so station-filtered displays update in real-time
   try {

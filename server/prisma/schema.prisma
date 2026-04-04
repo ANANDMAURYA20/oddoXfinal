@@ -73,8 +73,10 @@ model Tenant {
   orders      Order[]
   customers   Customer[]
   discounts   Discount[]
-  settings    Settings?
-  kdsStations KdsStation[]
+  settings         Settings?
+  kdsStations      KdsStation[]
+  registerSessions RegisterSession[]
+  customerSessions CustomerSession[]
 }
 
 model User {
@@ -94,8 +96,42 @@ model User {
   kdsStation   KdsStation? @relation(fields: [kdsStationId], references: [id], onDelete: SetNull)
 
   orders Order[]
+  registerSessions RegisterSession[] @relation("registerSessions")
 
   @@index([tenantId])
+}
+
+// ─────────────────────────────────────────────
+// QR Ordering Sessions
+// ─────────────────────────────────────────────
+
+model CustomerSession {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique @default(uuid())
+  tableNumber  Int      // Matches POS dine-in table number (1..totalTables)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  orders Order[] @relation("sessionOrders")
+
+  @@index([tenantId])
+  @@index([tableNumber, tenantId])
+}
+
+model ProductAddon {
+  id        String  @id @default(uuid())
+  name      String  // e.g., "Extra Cheese", "Spicy Sauce"
+  price     Float   @default(0)
+  isActive  Boolean @default(true)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
 }
 
 // ─────────────────────────────────────────────
@@ -137,6 +173,10 @@ model Product {
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   orderItems OrderItem[]
+  addons     ProductAddon[]
+
+  // QR ordering display
+  vegType    String?  // "veg", "non-veg", "egg"
 
   @@index([tenantId])
   @@index([barcode])
@@ -175,8 +215,8 @@ model Order {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  cashierId String
-  cashier   User   @relation(fields: [cashierId], references: [id])
+  cashierId String?
+  cashier   User?  @relation(fields: [cashierId], references: [id])
 
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
@@ -184,16 +224,27 @@ model Order {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  // QR ordering / dine-in fields
+  tableNumber Int?    // Matches POS dine-in table number
+
+  sessionId String?
+  session   CustomerSession? @relation("sessionOrders", fields: [sessionId], references: [id], onDelete: SetNull)
+
+  orderSource String  @default("POS") // "POS" | "QR"
+
   items OrderItem[]
 
   @@index([tenantId])
   @@index([createdAt])
+  @@index([tableNumber])
 }
 
 model OrderItem {
   id       String @id @default(uuid())
   quantity Int
   price    Float
+  addons   Json?  // Store selected addons as JSON: [{name, price}]
+  note     String?
 
   orderId String
   order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -240,8 +291,53 @@ model Settings {
   totalTables    Int      @default(0)
   onboardingCompleted Boolean @default(false)
 
+  // QR Ordering settings
+  qrOrderingEnabled Boolean @default(false)
+  restaurantLat     Float?
+  restaurantLng     Float?
+  geofenceRadius    Int     @default(100) // in meters
+  geofenceEnabled   Boolean @default(false)
+
   tenantId String @unique
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────
+// POS Register Sessions (Open/Close Day)
+// ─────────────────────────────────────────────
+
+enum RegisterStatus {
+  OPEN
+  CLOSED
+}
+
+model RegisterSession {
+  id              String         @id @default(uuid())
+  openingCash     Float          @default(0)
+  closingCash     Float?
+  status          RegisterStatus @default(OPEN)
+  openedAt        DateTime       @default(now())
+  closedAt        DateTime?
+  closingNote     String?
+
+  // Snapshot at close time
+  totalCashSales  Float?
+  totalCardSales  Float?
+  totalUpiSales   Float?
+  totalOrders     Int?
+  totalRevenue    Float?
+  expectedCash    Float?         // openingCash + cashSales
+  cashDifference  Float?         // actual closingCash - expectedCash
+
+  cashierId String
+  cashier   User   @relation("registerSessions", fields: [cashierId], references: [id])
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([cashierId])
+  @@index([openedAt])
 }
 
 // ─────────────────────────────────────────────

@@ -10,6 +10,11 @@ const updateSettingsSchema = z.object({
   upiId: z.string().optional(),
   totalTables: z.number().int().min(0).optional(),
   onboardingCompleted: z.boolean().optional(),
+  qrOrderingEnabled: z.boolean().optional(),
+  geofenceEnabled: z.boolean().optional(),
+  restaurantLat: z.number().nullable().optional(),
+  restaurantLng: z.number().nullable().optional(),
+  geofenceRadius: z.number().int().min(10).max(5000).optional(),
 });
 
 module.exports = { updateSettingsSchema };
