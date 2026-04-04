@@ -15,7 +15,14 @@ const tenantIsolation = asyncHandler(async (req, _res, next) => {
   // Super admin can bypass tenant isolation
   if (role === "SUPER_ADMIN") {
     // If super admin provides a tenantId in query/params, use it for scoped access
-    req.tenantId = req.query.tenantId || req.params.tenantId || null;
+    const queryTenantId = req.query.tenantId || req.params.tenantId;
+    if (queryTenantId) {
+      req.tenantId = queryTenantId;
+    } else {
+      // For development/POS testing, default to the first available tenant if none provided
+      const firstTenant = await prisma.tenant.findFirst({ select: { id: true } });
+      req.tenantId = firstTenant ? firstTenant.id : null;
+    }
     return next();
   }
 
