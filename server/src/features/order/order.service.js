@@ -1,6 +1,6 @@
 const prisma = require("../../config/db");
 const ApiError = require("../../utils/ApiError");
-const { emitToTenant } = require("../../config/socket");
+const { emitToTenant, emitToKdsStation } = require("../../config/socket");
 
 /**
  * Generate a unique order number: ORD-YYYYMMDD-XXXXX
@@ -98,6 +98,34 @@ const createOrder = async (tenantId, cashierId, data) => {
 
   // Emit event to connected Socket.io clients (Kitchen Display)
   emitToTenant(tenantId, "order:new", order);
+
+  // Emit to specific KDS stations based on order item categories
+  try {
+    const kdsStations = await prisma.kdsStation.findMany({
+      where: { tenantId, isActive: true },
+    });
+
+    if (kdsStations.length > 0) {
+      // Get category IDs from the order's products
+      const orderProductIds = order.items.map((i) => i.productId);
+      const products = await prisma.product.findMany({
+        where: { id: { in: orderProductIds } },
+        select: { id: true, categoryId: true },
+      });
+      const orderCategoryIds = [...new Set(products.map((p) => p.categoryId).filter(Boolean))];
+
+      for (const station of kdsStations) {
+        // If station has no category filter, it gets all orders
+        // Otherwise only orders with matching categories
+        if (station.categoryIds.length === 0 || station.categoryIds.some((cid) => orderCategoryIds.includes(cid))) {
+          emitToKdsStation(station.id, "order:new", order);
+        }
+      }
+    }
+  } catch (err) {
+    // Don't fail the order if KDS emission fails
+    console.error("KDS emission error:", err);
+  }
 
   return order;
 };

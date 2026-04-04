@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, Minus, Trash2, X, Delete, CreditCard, Banknote, Smartphone, Check } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Search, Plus, Minus, Trash2, X, Delete, CreditCard, Banknote, Smartphone, Check, ArrowLeft, LogOut } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../config/api';
 import useCartStore from '../stores/useCartStore';
+import useAuthStore from '../stores/useAuthStore';
 
 export default function POSPage() {
   const [products, setProducts] = useState([]);
@@ -14,6 +17,8 @@ export default function POSPage() {
   const [numpadValue, setNumpadValue] = useState('');
 
   const cart = useCartStore();
+  const { user, logout } = useAuthStore();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchProducts();
@@ -88,6 +93,15 @@ export default function POSPage() {
         {/* Header */}
         <div className="border-b border-[var(--color-border)] bg-white px-6 py-4">
           <div className="flex items-center gap-4">
+            {user?.role === 'TENANT_ADMIN' && (
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                <ArrowLeft size={16} />
+                Dashboard
+              </button>
+            )}
             <h1 className="font-display text-xl font-bold text-slate-900">POS Terminal</h1>
             <div className="relative flex-1 max-w-md">
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -100,6 +114,15 @@ export default function POSPage() {
                 className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] pl-10 pr-4 py-2.5 text-sm outline-none transition-all focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
               />
             </div>
+            {user?.role === 'CASHIER' && (
+              <button
+                onClick={() => { logout(); navigate('/login'); }}
+                className="ml-auto flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+              >
+                <LogOut size={16} />
+                Logout
+              </button>
+            )}
           </div>
 
           {/* Category Pills */}
@@ -344,12 +367,42 @@ function CheckoutModal({ onClose, cart }) {
   const [processing, setProcessing] = useState(false);
   const [success, setSuccess] = useState(false);
   const [orderNumber, setOrderNumber] = useState('');
+  const [showUpiQr, setShowUpiQr] = useState(false);
+  const [upiId, setUpiId] = useState('');
+  const [storeName, setStoreName] = useState('');
+
+  useEffect(() => {
+    // Fetch tenant settings to get UPI ID
+    const fetchUpiSettings = async () => {
+      try {
+        const { data } = await api.get('/settings');
+        setUpiId(data.data?.upiId || '');
+        setStoreName(data.data?.storeName || 'Store');
+      } catch (err) {
+        console.error('Failed to fetch settings:', err);
+      }
+    };
+    fetchUpiSettings();
+  }, []);
 
   const paymentMethods = [
     { id: 'CASH', label: 'Cash', icon: Banknote, color: 'emerald' },
     { id: 'CARD', label: 'Card', icon: CreditCard, color: 'blue' },
     { id: 'UPI', label: 'UPI', icon: Smartphone, color: 'purple' },
   ];
+
+  const handleSelectMethod = (id) => {
+    setMethod(id);
+    setShowUpiQr(false);
+  };
+
+  const handleProceed = () => {
+    if (method === 'UPI' && upiId) {
+      setShowUpiQr(true);
+    } else {
+      handleCheckout();
+    }
+  };
 
   const handleCheckout = async () => {
     if (!method) return;
@@ -373,6 +426,9 @@ function CheckoutModal({ onClose, cart }) {
       setProcessing(false);
     }
   };
+
+  const totalAmount = cart.getTotal().toFixed(2);
+  const upiLink = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(storeName)}&am=${totalAmount}&cu=INR`;
 
   return (
     <motion.div
@@ -401,6 +457,57 @@ function CheckoutModal({ onClose, cart }) {
               New Order
             </button>
           </div>
+        ) : showUpiQr ? (
+          /* ── UPI QR Code View ── */
+          <div className="text-center">
+            <div className="mb-4 flex items-center justify-between">
+              <button
+                onClick={() => setShowUpiQr(false)}
+                className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                <ArrowLeft size={16} />
+                Back
+              </button>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-100">
+                <Smartphone size={24} className="text-purple-600" />
+              </div>
+              <h3 className="font-display text-lg font-bold text-slate-900">Scan to Pay</h3>
+              <p className="text-sm text-slate-500">Ask customer to scan this QR code</p>
+            </div>
+
+            {/* QR Code */}
+            <div className="mx-auto mb-4 inline-block rounded-2xl border-2 border-slate-200 bg-white p-4">
+              <QRCodeSVG value={upiLink} size={200} level="H" />
+            </div>
+
+            <div className="mb-4 rounded-xl bg-purple-50 border border-purple-200 p-3">
+              <p className="text-xs text-purple-600 font-medium">Amount</p>
+              <p className="font-display text-2xl font-bold text-purple-800">₹{totalAmount}</p>
+              <p className="text-xs text-purple-500 mt-1 font-mono">{upiId}</p>
+            </div>
+
+            {/* Payment Received button */}
+            <button
+              onClick={handleCheckout}
+              disabled={processing}
+              className="w-full rounded-xl bg-emerald-600 py-3.5 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {processing ? (
+                <div className="mx-auto h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  <Check size={18} />
+                  Payment Received
+                </span>
+              )}
+            </button>
+          </div>
         ) : (
           <>
             <div className="mb-6 flex items-center justify-between">
@@ -413,7 +520,7 @@ function CheckoutModal({ onClose, cart }) {
             <div className="mb-4 rounded-xl bg-[var(--color-surface-raised)] p-4">
               <div className="flex justify-between font-display text-xl font-bold text-slate-900">
                 <span>Total</span>
-                <span>₹{cart.getTotal().toFixed(2)}</span>
+                <span>₹{totalAmount}</span>
               </div>
             </div>
 
@@ -422,7 +529,7 @@ function CheckoutModal({ onClose, cart }) {
               {paymentMethods.map((pm) => (
                 <button
                   key={pm.id}
-                  onClick={() => setMethod(pm.id)}
+                  onClick={() => handleSelectMethod(pm.id)}
                   className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all ${
                     method === pm.id
                       ? 'border-brand-500 bg-brand-50 text-brand-700'
@@ -436,16 +543,24 @@ function CheckoutModal({ onClose, cart }) {
             </div>
 
             <button
-              onClick={handleCheckout}
+              onClick={handleProceed}
               disabled={!method || processing}
               className="w-full rounded-xl bg-brand-600 py-3.5 text-sm font-semibold text-white shadow-lg shadow-brand-200 transition-all hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {processing ? (
                 <div className="mx-auto h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+              ) : method === 'UPI' && upiId ? (
+                'Generate QR Code'
               ) : (
-                `Pay ₹${cart.getTotal().toFixed(2)}`
+                `Pay ₹${totalAmount}`
               )}
             </button>
+
+            {method === 'UPI' && !upiId && (
+              <p className="mt-2 text-center text-xs text-amber-600">
+                No UPI ID configured. Go to Settings to add your UPI ID for QR payments.
+              </p>
+            )}
           </>
         )}
       </motion.div>

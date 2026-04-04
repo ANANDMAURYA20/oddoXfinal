@@ -13,7 +13,7 @@ router.use(auth, tenantIsolation);
 router.post("/", validate(createOrderSchema), controller.createOrder);
 router.get("/", controller.listOrders);
 router.get("/:id", controller.getOrderById);
-router.patch("/:id/status", authorize("TENANT_ADMIN"), validate(updateOrderStatusSchema), controller.updateOrderStatus);
+router.patch("/:id/status", authorize("TENANT_ADMIN", "KDS_STAFF"), validate(updateOrderStatusSchema), controller.updateOrderStatus);
 router.post("/:id/refund", authorize("TENANT_ADMIN"), controller.refundOrder);
 
 module.exports = router;

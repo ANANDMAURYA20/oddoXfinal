@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, X, Users, Shield, ShoppingCart } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Users, Shield, ShoppingCart, ChefHat } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../config/api';
 
 const ROLE_BADGE = {
   TENANT_ADMIN: { label: 'Admin', icon: Shield, class: 'bg-brand-50 text-brand-700 border-brand-200' },
   CASHIER: { label: 'Cashier', icon: ShoppingCart, class: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  KDS_STAFF: { label: 'Kitchen Display', icon: ChefHat, class: 'bg-orange-50 text-orange-700 border-orange-200' },
 };
 
 export default function StaffPage() {
@@ -20,7 +21,7 @@ export default function StaffPage() {
     try {
       setLoading(true);
       const { data } = await api.get('/users');
-      setStaff(data.data);
+      setStaff(data.data.users || []);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   };
@@ -81,10 +82,17 @@ export default function StaffPage() {
               </div>
               <h3 className="text-sm font-semibold text-slate-800">{member.name}</h3>
               <p className="text-xs text-slate-400 mb-3">{member.email}</p>
-              <span className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold ${role.class}`}>
-                <role.icon size={12} />
-                {role.label}
-              </span>
+              <div className="flex flex-wrap gap-1.5">
+                <span className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold ${role.class}`}>
+                  <role.icon size={12} />
+                  {role.label}
+                </span>
+                {member.kdsStation && (
+                  <span className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
+                    {member.kdsStation.name}
+                  </span>
+                )}
+              </div>
             </motion.div>
           );
         })}
@@ -117,8 +125,22 @@ function StaffModal({ editing, onClose, onSaved }) {
     email: editing?.email || '',
     password: '',
     role: editing?.role || 'CASHIER',
+    kdsStationId: editing?.kdsStationId || '',
   });
   const [saving, setSaving] = useState(false);
+  const [kdsStations, setKdsStations] = useState([]);
+
+  useEffect(() => {
+    const fetchStations = async () => {
+      try {
+        const { data } = await api.get('/kds-stations');
+        setKdsStations(data.data || []);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchStations();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -126,6 +148,12 @@ function StaffModal({ editing, onClose, onSaved }) {
     try {
       const payload = { ...form };
       if (editing && !payload.password) delete payload.password;
+      // Only send kdsStationId for KDS_STAFF
+      if (payload.role !== 'KDS_STAFF') {
+        payload.kdsStationId = null;
+      } else {
+        payload.kdsStationId = payload.kdsStationId || null;
+      }
 
       if (editing) {
         await api.patch(`/users/${editing.id}`, payload);
@@ -180,8 +208,30 @@ function StaffModal({ editing, onClose, onSaved }) {
               className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100">
               <option value="CASHIER">Cashier</option>
               <option value="TENANT_ADMIN">Admin</option>
+              <option value="KDS_STAFF">Kitchen Display Staff</option>
             </select>
           </div>
+
+          {/* KDS Station selector - only for KDS_STAFF */}
+          {form.role === 'KDS_STAFF' && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">Assign to KDS Station</label>
+              <select
+                value={form.kdsStationId}
+                onChange={(e) => setForm({ ...form, kdsStationId: e.target.value })}
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+              >
+                <option value="">No station (sees all orders)</option>
+                {kdsStations.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+              {kdsStations.length === 0 && (
+                <p className="mt-1 text-xs text-amber-600">Create KDS stations in Kitchen Display Settings first.</p>
+              )}
+            </div>
+          )}
+
           <button type="submit" disabled={saving}
             className="w-full rounded-xl bg-brand-600 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-200 transition-all hover:bg-brand-700 disabled:opacity-50">
             {saving ? 'Saving...' : editing ? 'Update' : 'Create'}
