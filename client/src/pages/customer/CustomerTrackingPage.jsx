@@ -8,7 +8,7 @@ import useCustomerStore from '../../stores/useCustomerStore';
 import useThemeStore from '../../stores/useThemeStore';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || window.location.origin;
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
 const STATUS_FLOW = ['PENDING', 'PREPARING', 'READY', 'COMPLETED'];
 

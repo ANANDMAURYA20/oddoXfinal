@@ -6,18 +6,11 @@ const logger = require("../utils/logger");
 let io;
 
 const initSocketIO = (httpServer) => {
-  const allowedOrigins = env.CORS_ORIGIN
-    ? env.CORS_ORIGIN.split(",").map((o) => o.trim())
-    : ["http://localhost:5173", "http://localhost:5000"];
-
   io = new Server(httpServer, {
     cors: {
-      origin: allowedOrigins,
+      origin: "*", // Configure this in production to match your frontend domain
       methods: ["GET", "POST"],
-      credentials: true,
     },
-    // Allow both transports for production compatibility
-    transports: ["websocket", "polling"],
   });
 
   // Create separate namespaces for authenticated staff and public customers
