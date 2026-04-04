@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Minus, Trash2, X, Delete, CreditCard, Banknote, Smartphone, Check, ArrowLeft, LogOut, UtensilsCrossed, ShoppingBag, PauseCircle, ChefHat, Grid3X3, Receipt, BarChart3, Eye, IndianRupee, DoorOpen, DoorClosed, Clock, TrendingUp, Wallet, AlertTriangle, UserPlus, Phone } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, X, Delete, CreditCard, Banknote, Smartphone, Check, ArrowLeft, LogOut, UtensilsCrossed, ShoppingBag, PauseCircle, ChefHat, Grid3X3, Receipt, BarChart3, Eye, IndianRupee, DoorOpen, DoorClosed, Clock, TrendingUp, Wallet, AlertTriangle, UserPlus, Phone, QrCode } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../config/api';
@@ -22,6 +22,10 @@ export default function POSPage() {
   const [showMyBills, setShowMyBills] = useState(false);
   const [showMyReport, setShowMyReport] = useState(false);
 
+  // QR table orders (synced from server)
+  const [qrTableOrders, setQrTableOrders] = useState([]); // [{tableNumber, orders, allItems, totalAmount, status}]
+  const [showQrTableDetail, setShowQrTableDetail] = useState(null); // tableNumber to show
+
   // Register session state
   const [registerSession, setRegisterSession] = useState(null);
   const [registerLoading, setRegisterLoading] = useState(true);
@@ -30,6 +34,27 @@ export default function POSPage() {
   const cart = useCartStore();
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+
+  // ── Customer Display sync via BroadcastChannel ──
+  const cfdChannel = useRef(null);
+  useEffect(() => {
+    cfdChannel.current = new BroadcastChannel('pos_customer_display');
+    return () => cfdChannel.current?.close();
+  }, []);
+
+  // Broadcast cart state on every change
+  useEffect(() => {
+    cfdChannel.current?.postMessage({
+      type: 'cart_update',
+      items: cart.items,
+      subtotal: cart.getSubtotal(),
+      tax: cart.getTax(),
+      total: cart.getTotal(),
+      taxRate: cart.taxRate,
+      orderType: cart.orderType,
+      activeTable: cart.activeTable,
+    });
+  }, [cart.items, cart.discount, cart.taxRate, cart.orderType, cart.activeTable]);
 
   useEffect(() => {
     checkRegisterSession();
@@ -40,6 +65,10 @@ export default function POSPage() {
       fetchProducts();
       fetchCategories();
       fetchSettings();
+      fetchQrTableOrders();
+      // Poll QR orders every 15 seconds
+      const interval = setInterval(fetchQrTableOrders, 15000);
+      return () => clearInterval(interval);
     }
   }, [registerSession]);
 
@@ -103,6 +132,27 @@ export default function POSPage() {
       }
     } catch (err) {
       console.error('Failed to fetch settings:', err);
+    }
+  };
+
+  const fetchQrTableOrders = async () => {
+    try {
+      const { data } = await api.get('/orders/qr-tables');
+      setQrTableOrders(data.data || []);
+    } catch (err) {
+      console.error('Failed to fetch QR table orders:', err);
+    }
+  };
+
+  const handleCompleteQrTable = async (tableNumber, paymentMethod = 'CASH') => {
+    try {
+      const { data } = await api.post(`/orders/qr-tables/${tableNumber}/complete`, { paymentMethod });
+      setShowQrTableDetail(null);
+      fetchQrTableOrders();
+      return data.data; // combined order for bill
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to complete QR table');
+      return null;
     }
   };
 
@@ -237,6 +287,14 @@ export default function POSPage() {
               />
             </div>
             <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={() => window.open('/customer-display', 'CustomerDisplay', 'width=1024,height=768')}
+                className="flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-100 transition-colors"
+                title="Open on second screen for customers"
+              >
+                <Eye size={16} />
+                Customer Display
+              </button>
               <button
                 onClick={() => setShowMyBills(true)}
                 className="flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
@@ -573,9 +631,17 @@ export default function POSPage() {
           <TableViewModal
             totalTables={totalTables}
             cart={cart}
+            qrTableOrders={qrTableOrders}
             onSelectTable={(num) => {
-              cart.selectTable(num);
-              setShowTableView(false);
+              // Check if this table has a QR order
+              const qrTable = qrTableOrders.find((t) => t.tableNumber === num);
+              if (qrTable) {
+                setShowQrTableDetail(num);
+                setShowTableView(false);
+              } else {
+                cart.selectTable(num);
+                setShowTableView(false);
+              }
             }}
             onClose={() => setShowTableView(false)}
           />
@@ -588,6 +654,18 @@ export default function POSPage() {
           <CheckoutModal
             onClose={() => setShowCheckout(false)}
             cart={cart}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* QR Table Detail Modal */}
+      <AnimatePresence>
+        {showQrTableDetail && (
+          <QrTableDetailModal
+            tableNumber={showQrTableDetail}
+            qrTableOrders={qrTableOrders}
+            onComplete={handleCompleteQrTable}
+            onClose={() => setShowQrTableDetail(null)}
           />
         )}
       </AnimatePresence>
@@ -754,14 +832,16 @@ function ShoppingCartIcon() {
 }
 
 /* ────── Table View Modal ────── */
-function TableViewModal({ totalTables, cart, onSelectTable, onClose }) {
+function TableViewModal({ totalTables, cart, qrTableOrders = [], onSelectTable, onClose }) {
   const tables = Array.from({ length: totalTables || 10 }, (_, i) => i + 1);
+  const qrTableMap = new Map(qrTableOrders.map((t) => [t.tableNumber, t]));
 
   const STATUS_STYLES = {
     free: 'border-slate-200 bg-white text-slate-600 hover:border-brand-300 hover:bg-brand-50',
     active: 'border-brand-500 bg-brand-50 text-brand-700 ring-2 ring-brand-200',
     occupied: 'border-amber-400 bg-amber-50 text-amber-700',
     'kot-sent': 'border-orange-400 bg-orange-50 text-orange-700',
+    'qr-order': 'border-purple-400 bg-purple-50 text-purple-700 ring-2 ring-purple-200',
   };
 
   const STATUS_LABELS = {
@@ -769,6 +849,7 @@ function TableViewModal({ totalTables, cart, onSelectTable, onClose }) {
     active: 'Active',
     occupied: 'Held',
     'kot-sent': 'KOT Sent',
+    'qr-order': 'QR Order',
   };
 
   return (
@@ -802,6 +883,7 @@ function TableViewModal({ totalTables, cart, onSelectTable, onClose }) {
                 key === 'free' ? 'bg-slate-200' :
                 key === 'active' ? 'bg-brand-500' :
                 key === 'occupied' ? 'bg-amber-400' :
+                key === 'qr-order' ? 'bg-purple-500' :
                 'bg-orange-400'
               }`} />
               <span className="text-xs text-slate-500">{label}</span>
@@ -813,8 +895,11 @@ function TableViewModal({ totalTables, cart, onSelectTable, onClose }) {
         <div className="flex-1 overflow-y-auto">
           <div className="grid grid-cols-4 sm:grid-cols-5 gap-3">
             {tables.map((num) => {
-              const status = cart.getTableStatus(num);
+              const qrTable = qrTableMap.get(num);
+              const posStatus = cart.getTableStatus(num);
+              const status = qrTable ? 'qr-order' : posStatus;
               const held = cart.heldTables[num];
+              const itemCount = qrTable ? qrTable.allItems.length : held?.items?.length;
               return (
                 <motion.button
                   key={num}
@@ -822,16 +907,25 @@ function TableViewModal({ totalTables, cart, onSelectTable, onClose }) {
                   onClick={() => onSelectTable(num)}
                   className={`relative flex flex-col items-center justify-center rounded-xl border-2 p-4 transition-all ${STATUS_STYLES[status]}`}
                 >
-                  <UtensilsCrossed size={20} className="mb-1.5" />
+                  {qrTable ? (
+                    <QrCode size={20} className="mb-1.5 text-purple-500" />
+                  ) : (
+                    <UtensilsCrossed size={20} className="mb-1.5" />
+                  )}
                   <span className="text-sm font-bold">T-{num}</span>
                   <span className={`text-[10px] font-medium mt-0.5 ${
                     status === 'free' ? 'text-slate-400' : ''
                   }`}>
                     {STATUS_LABELS[status]}
                   </span>
-                  {held && (
+                  {qrTable && (
+                    <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-purple-500 text-[10px] font-bold text-white px-1">
+                      {itemCount}
+                    </span>
+                  )}
+                  {!qrTable && held && (
                     <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white px-1">
-                      {held.items.length}
+                      {itemCount}
                     </span>
                   )}
                 </motion.button>
@@ -848,6 +942,153 @@ function TableViewModal({ totalTables, cart, onSelectTable, onClose }) {
           </div>
         )}
       </motion.div>
+    </motion.div>
+  );
+}
+
+/* ────── QR Table Detail Modal ────── */
+function QrTableDetailModal({ tableNumber, qrTableOrders, onComplete, onClose }) {
+  const [processing, setProcessing] = useState(false);
+  const [method, setMethod] = useState('CASH');
+  const [completedBill, setCompletedBill] = useState(null);
+
+  const tableData = qrTableOrders.find((t) => t.tableNumber === tableNumber);
+
+  if (!tableData) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+        onClick={onClose}
+      >
+        <div className="bg-white rounded-2xl p-6 text-center" onClick={(e) => e.stopPropagation()}>
+          <p className="text-slate-500">No active QR orders on this table</p>
+          <button onClick={onClose} className="mt-4 px-6 py-2 bg-slate-100 rounded-xl text-sm font-medium">Close</button>
+        </div>
+      </motion.div>
+    );
+  }
+
+  const handleComplete = async () => {
+    setProcessing(true);
+    const bill = await onComplete(tableNumber, method);
+    if (bill) {
+      setCompletedBill(bill);
+    }
+    setProcessing(false);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="w-full max-w-lg rounded-2xl border border-[var(--color-border)] bg-white shadow-2xl max-h-[85vh] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1.5 bg-purple-100 text-purple-700 px-2.5 py-1 rounded-lg text-xs font-bold">
+                <QrCode size={12} /> QR Order
+              </span>
+              <h3 className="font-display text-lg font-bold text-slate-900">Table {tableNumber}</h3>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {tableData.orders.length} order(s) · {tableData.allItems.length} item(s)
+            </p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Customer info */}
+        {tableData.orders[0]?.note && (
+          <div className="px-6 py-2 bg-purple-50 text-purple-700 text-xs font-medium">
+            {tableData.orders[0].note}
+          </div>
+        )}
+
+        {/* Items */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <div className="space-y-2">
+            {tableData.allItems.map((item, i) => (
+              <div key={i} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                <div className="flex items-center gap-3">
+                  {item.image ? (
+                    <img src={getImageUrl(item.image)} alt={item.name} className="w-10 h-10 rounded-lg object-cover" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center text-purple-500 font-bold text-sm">
+                      {item.name?.charAt(0)}
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm font-medium text-slate-800">{item.name}</p>
+                    <p className="text-xs text-slate-400">₹{item.price?.toFixed(2)} x {item.quantity}</p>
+                  </div>
+                </div>
+                <span className="font-bold text-sm text-slate-800">₹{item.totalPrice?.toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer - Total + Actions */}
+        <div className="border-t border-slate-100 px-6 py-4">
+          <div className="flex justify-between items-center mb-4">
+            <span className="text-sm text-slate-500">Total Amount</span>
+            <span className="font-display text-2xl font-bold text-slate-900">₹{tableData.totalAmount.toFixed(2)}</span>
+          </div>
+
+          {/* Payment method */}
+          <div className="flex gap-2 mb-4">
+            {['CASH', 'CARD', 'UPI'].map((m) => (
+              <button
+                key={m}
+                onClick={() => setMethod(m)}
+                className={`flex-1 py-2 rounded-xl text-xs font-semibold border-2 transition-all ${
+                  method === m ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-slate-200 text-slate-500'
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={handleComplete}
+              disabled={processing}
+              className="flex-1 flex items-center justify-center gap-2 py-3 bg-brand-600 text-white rounded-xl text-sm font-semibold hover:bg-brand-700 disabled:opacity-50 transition-all"
+            >
+              {processing ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+              ) : (
+                <>
+                  <Check size={16} />
+                  Complete & Print Bill
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Bill Modal */}
+      {completedBill && (
+        <BillModal order={completedBill} onClose={() => { setCompletedBill(null); onClose(); }} />
+      )}
     </motion.div>
   );
 }
@@ -1401,6 +1642,16 @@ function CheckoutModal({ onClose, cart }) {
       }
 
       setSuccess(true);
+
+      // Broadcast to customer display
+      const channel = new BroadcastChannel('pos_customer_display');
+      channel.postMessage({
+        type: 'checkout_success',
+        orderNumber,
+        order: completedOrder,
+      });
+      channel.close();
+
       cart.clearCart();
     } catch (err) {
       alert(err.response?.data?.message || 'Checkout failed');

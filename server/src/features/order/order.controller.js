@@ -40,4 +40,14 @@ const addItemsToOrder = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, order, "Items added to order"));
 });
 
-module.exports = { createOrder, listOrders, getOrderById, updateOrderStatus, refundOrder, addItemsToOrder };
+const getActiveQrTableOrders = asyncHandler(async (req, res) => {
+  const result = await orderService.getActiveQrTableOrders(req.tenantId);
+  res.status(200).json(new ApiResponse(200, result, "Active QR table orders fetched"));
+});
+
+const completeQrTable = asyncHandler(async (req, res) => {
+  const order = await orderService.completeQrTable(req.tenantId, req.params.tableNumber, req.body);
+  res.status(200).json(new ApiResponse(200, order, "QR table orders completed"));
+});
+
+module.exports = { createOrder, listOrders, getOrderById, updateOrderStatus, refundOrder, addItemsToOrder, getActiveQrTableOrders, completeQrTable };

@@ -11,6 +11,8 @@ const router = Router();
 router.use(auth, tenantIsolation);
 
 router.post("/", validate(createOrderSchema), controller.createOrder);
+router.get("/qr-tables", controller.getActiveQrTableOrders);
+router.post("/qr-tables/:tableNumber/complete", authorize("TENANT_ADMIN", "CASHIER"), controller.completeQrTable);
 router.get("/", controller.listOrders);
 router.get("/:id", controller.getOrderById);
 router.patch("/:id/status", authorize("TENANT_ADMIN", "KDS_STAFF", "CASHIER"), validate(updateOrderStatusSchema), controller.updateOrderStatus);

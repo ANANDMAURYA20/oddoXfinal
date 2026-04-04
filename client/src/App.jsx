@@ -17,6 +17,7 @@ import OnboardingPage from './pages/OnboardingPage';
 import KDSLoginPage from './pages/KDSLoginPage';
 import KDSSettingsPage from './pages/KDSSettingsPage';
 import TableManagementPage from './pages/TableManagementPage';
+import CustomerDisplayPage from './pages/CustomerDisplayPage';
 
 // Lazy-loaded customer pages (public, no auth)
 const CustomerLandingPage = lazy(() => import('./pages/customer/CustomerLandingPage'));
@@ -49,6 +50,9 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* ── Customer Facing Display (open on second screen) ── */}
+          <Route path="/customer-display" element={<CustomerDisplayPage />} />
 
           {/* ── Customer QR Ordering (Public, no auth) ── */}
           <Route path="/order/:tenantId/:tableNumber" element={<CustomerLandingPage />} />
