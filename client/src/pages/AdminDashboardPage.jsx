@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Building2, Users, ShoppingBag, Package, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Building2, Users, ShoppingBag, Package, LogOut, ChevronLeft, ChevronRight, Power, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../config/api';
 import useAuthStore from '../stores/useAuthStore';
@@ -10,6 +10,8 @@ export default function AdminDashboardPage() {
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
 
@@ -41,6 +43,31 @@ export default function AdminDashboardPage() {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const toggleAdminStatus = async (adminId) => {
+    try {
+      setActionLoading(adminId);
+      await api.patch(`/tenants/admins/${adminId}/toggle-status`);
+      fetchAdmins();
+    } catch (err) {
+      console.error('Failed to toggle admin status:', err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const deleteTenant = async (tenantId) => {
+    try {
+      setActionLoading(tenantId);
+      await api.delete(`/tenants/${tenantId}/permanent`);
+      setDeleteConfirm(null);
+      fetchAdmins();
+    } catch (err) {
+      console.error('Failed to delete tenant:', err);
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const planColors = {
@@ -125,6 +152,7 @@ export default function AdminDashboardPage() {
                     <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 text-center">Orders</th>
                     <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
                     <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Joined</th>
+                    <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border)]">
@@ -192,6 +220,47 @@ export default function AdminDashboardPage() {
                           month: 'short',
                           year: 'numeric',
                         })}
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => toggleAdminStatus(admin.id)}
+                            disabled={actionLoading === admin.id}
+                            className={`rounded-lg p-2 transition-colors disabled:opacity-40 ${
+                              admin.isActive
+                                ? 'text-amber-600 hover:bg-amber-50'
+                                : 'text-emerald-600 hover:bg-emerald-50'
+                            }`}
+                            title={admin.isActive ? 'Disable admin' : 'Enable admin'}
+                          >
+                            <Power size={16} />
+                          </button>
+                          {deleteConfirm === admin.tenant?.id ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => deleteTenant(admin.tenant.id)}
+                                disabled={actionLoading === admin.tenant?.id}
+                                className="rounded-lg bg-red-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-40"
+                              >
+                                Confirm
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirm(null)}
+                                className="rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setDeleteConfirm(admin.tenant?.id)}
+                              className="rounded-lg p-2 text-red-500 hover:bg-red-50 transition-colors"
+                              title="Delete tenant permanently"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </motion.tr>
                   ))}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Store, Percent, Receipt, DollarSign } from 'lucide-react';
+import { Save, Store, Percent, Receipt, DollarSign, CreditCard, QrCode, UtensilsCrossed } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../config/api';
 
@@ -10,6 +10,9 @@ export default function SettingsPage() {
     taxRate: 0,
     taxLabel: 'GST',
     receiptNote: '',
+    paymentMethods: [],
+    upiId: '',
+    totalTables: 0,
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -30,6 +33,9 @@ export default function SettingsPage() {
           taxRate: data.data.taxRate || 0,
           taxLabel: data.data.taxLabel || 'GST',
           receiptNote: data.data.receiptNote || '',
+          paymentMethods: data.data.paymentMethods || [],
+          upiId: data.data.upiId || '',
+          totalTables: data.data.totalTables || 0,
         });
       }
     } catch (err) {
@@ -47,6 +53,7 @@ export default function SettingsPage() {
       await api.patch('/settings', {
         ...form,
         taxRate: parseFloat(form.taxRate),
+        totalTables: parseInt(form.totalTables) || 0,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -134,6 +141,68 @@ export default function SettingsPage() {
               className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
             />
           </div>
+        </div>
+
+        {/* Payment Methods */}
+        <div>
+          <label className="flex items-center gap-2 mb-1.5 text-sm font-medium text-slate-700">
+            <CreditCard size={16} className="text-slate-400" />
+            Payment Methods
+          </label>
+          <div className="flex flex-wrap gap-3">
+            {[
+              { id: 'CASH', label: 'Cash' },
+              { id: 'CARD', label: 'Card' },
+              { id: 'UPI', label: 'UPI' },
+            ].map((method) => (
+              <button
+                key={method.id}
+                type="button"
+                onClick={() => {
+                  const methods = form.paymentMethods.includes(method.id)
+                    ? form.paymentMethods.filter((m) => m !== method.id)
+                    : [...form.paymentMethods, method.id];
+                  setForm({ ...form, paymentMethods: methods });
+                }}
+                className={`rounded-xl border-2 px-4 py-2.5 text-sm font-medium transition-all ${
+                  form.paymentMethods.includes(method.id)
+                    ? 'border-brand-500 bg-brand-50 text-brand-700'
+                    : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                }`}
+              >
+                {method.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* UPI ID */}
+        <div>
+          <label className="flex items-center gap-2 mb-1.5 text-sm font-medium text-slate-700">
+            <QrCode size={16} className="text-slate-400" />
+            UPI ID <span className="text-slate-400 font-normal">(for dynamic QR payments)</span>
+          </label>
+          <input
+            value={form.upiId}
+            onChange={(e) => setForm({ ...form, upiId: e.target.value })}
+            placeholder="yourname@upi or 9876543210@paytm"
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+          />
+        </div>
+
+        {/* Total Tables */}
+        <div>
+          <label className="flex items-center gap-2 mb-1.5 text-sm font-medium text-slate-700">
+            <UtensilsCrossed size={16} className="text-slate-400" />
+            Total Tables
+          </label>
+          <input
+            type="number"
+            min="0"
+            value={form.totalTables}
+            onChange={(e) => setForm({ ...form, totalTables: e.target.value })}
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+          />
         </div>
 
         {/* Receipt Note */}

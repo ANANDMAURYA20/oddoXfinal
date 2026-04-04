@@ -99,7 +99,7 @@ export default function ReportsPage() {
                 fontSize: '13px',
               }}
             />
-            <Bar dataKey="revenue" fill="#4f46e5" radius={[6, 6, 0, 0]} />
+            <Bar dataKey="revenue" fill="var(--color-brand-600)" radius={[6, 6, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>

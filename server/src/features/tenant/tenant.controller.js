@@ -37,4 +37,14 @@ const listTenantAdmins = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, result, "Tenant admins fetched"));
 });
 
-module.exports = { listTenants, getTenantById, updateTenant, deleteTenant, listTenantAdmins };
+const hardDeleteTenant = asyncHandler(async (req, res) => {
+  await tenantService.hardDeleteTenant(req.params.id);
+  res.status(200).json(new ApiResponse(200, null, "Tenant permanently deleted"));
+});
+
+const toggleAdminStatus = asyncHandler(async (req, res) => {
+  const admin = await tenantService.toggleAdminStatus(req.params.id);
+  res.status(200).json(new ApiResponse(200, admin, `Admin ${admin.isActive ? "activated" : "deactivated"}`));
+});
+
+module.exports = { listTenants, getTenantById, updateTenant, deleteTenant, hardDeleteTenant, toggleAdminStatus, listTenantAdmins };
