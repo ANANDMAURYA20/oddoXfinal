@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, ArrowRight, ShoppingCart } from 'lucide-react';
 import { motion } from 'framer-motion';
 import useAuthStore from '../stores/useAuthStore';
@@ -15,7 +15,8 @@ export default function LoginPage() {
     e.preventDefault();
     const result = await login(email, password);
     if (result.success) {
-      navigate('/pos');
+      const currentUser = useAuthStore.getState().user;
+      navigate(currentUser?.role === 'SUPER_ADMIN' ? '/admin' : '/pos');
     }
   };
 
@@ -118,6 +119,14 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+
+          {/* Register link */}
+          <p className="mt-6 text-center text-sm text-slate-500">
+            Don't have an account?{' '}
+            <Link to="/register" className="font-semibold text-brand-600 hover:text-brand-700 transition-colors">
+              Create account
+            </Link>
+          </p>
         </div>
 
         <p className="mt-6 text-center text-xs text-slate-400">

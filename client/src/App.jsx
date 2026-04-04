@@ -10,6 +10,8 @@ import InventoryPage from './pages/InventoryPage';
 import StaffPage from './pages/StaffPage';
 import SettingsPage from './pages/SettingsPage';
 import ReportsPage from './pages/ReportsPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
+import RegisterPage from './pages/RegisterPage';
 
 export default function App() {
   return (
@@ -17,6 +19,17 @@ export default function App() {
       <Routes>
         {/* Public */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+
+        {/* Protected — Admin Dashboard (Super Admin only, full-screen) */}
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <AdminDashboardPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Protected — POS and KDS are full-screen (no sidebar) */}
         <Route
