@@ -5,6 +5,7 @@ import { Search, ShoppingCart, Plus, Minus, ChevronLeft, Moon, Sun, Leaf, Drumst
 import axios from 'axios';
 import useCustomerStore from '../../stores/useCustomerStore';
 import useThemeStore from '../../stores/useThemeStore';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -185,7 +186,7 @@ export default function CustomerMenuPage() {
                     >
                       {product.image ? (
                         <img
-                          src={product.image}
+                          src={getImageUrl(product.image)}
                           alt={product.name}
                           loading="lazy"
                           className="w-full h-full object-cover"

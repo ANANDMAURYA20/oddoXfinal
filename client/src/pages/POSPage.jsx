@@ -4,6 +4,7 @@ import { Search, Plus, Minus, Trash2, X, Delete, CreditCard, Banknote, Smartphon
 import { QRCodeSVG } from 'qrcode.react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../config/api';
+import { getImageUrl } from '../utils/imageUrl';
 import useCartStore from '../stores/useCartStore';
 import useAuthStore from '../stores/useAuthStore';
 
@@ -305,30 +306,41 @@ export default function POSPage() {
                 whileTap={{ scale: 0.97 }}
                 onClick={() => cart.addItem(product)}
                 disabled={product.stock <= 0}
-                className={`group relative flex flex-col items-start rounded-xl border bg-white p-4 text-left transition-all hover:shadow-md hover:border-brand-200 ${
+                className={`group relative flex flex-col rounded-xl border bg-white text-left transition-all hover:shadow-md hover:border-brand-200 overflow-hidden ${
                   product.stock <= 0
                     ? 'opacity-50 cursor-not-allowed border-slate-200'
                     : 'border-[var(--color-border)]'
                 }`}
               >
-                {/* Product image placeholder */}
-                <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-xl bg-brand-50 text-brand-600 font-display font-bold text-lg">
-                  {product.name.charAt(0)}
-                </div>
-                <h3 className="font-medium text-sm text-slate-800 leading-tight line-clamp-2">
-                  {product.name}
-                </h3>
-                <p className="mt-1 font-display font-bold text-brand-600">
-                  ₹{product.price.toFixed(2)}
-                </p>
-                <p className={`mt-0.5 text-xs ${product.stock <= 5 ? 'text-amber-500' : 'text-slate-400'}`}>
-                  Stock: {product.stock}
-                </p>
-                {product.stock <= 0 && (
-                  <span className="absolute top-2 right-2 rounded-md bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600">
-                    Out
+                {/* Image area */}
+                <div className="relative w-full h-28 bg-slate-100">
+                  {product.image ? (
+                    <img src={getImageUrl(product.image)} alt={product.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-brand-50 text-brand-600 font-display font-bold text-2xl">
+                      {product.name.charAt(0)}
+                    </div>
+                  )}
+                  {/* Stock badge top-right */}
+                  <span className={`absolute top-1.5 right-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+                    product.stock <= 0
+                      ? 'bg-red-100 text-red-600'
+                      : product.stock <= 5
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-white/80 backdrop-blur-sm text-slate-600'
+                  }`}>
+                    {product.stock <= 0 ? 'Out' : `Stock: ${product.stock}`}
                   </span>
-                )}
+                </div>
+                {/* Name left, Price right */}
+                <div className="flex items-center justify-between w-full px-3 py-2.5">
+                  <h3 className="font-medium text-sm text-slate-800 leading-tight line-clamp-1 mr-2">
+                    {product.name}
+                  </h3>
+                  <span className="font-display font-bold text-brand-600 text-sm whitespace-nowrap">
+                    ₹{product.price.toFixed(2)}
+                  </span>
+                </div>
               </motion.button>
             ))}
           </div>

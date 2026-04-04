@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import api from '../config/api';
 import { useProducts, useCategories } from '../hooks/useInventory';
+import { getImageUrl } from '../utils/imageUrl';
 
 export default function InventoryPage() {
   const [tab, setTab] = useState('products'); // products | categories
@@ -165,11 +166,15 @@ export default function InventoryPage() {
                 <tr key={product.id} className={`hover:bg-slate-50/50 transition-colors ${!product.isActive ? 'opacity-60' : ''}`}>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
-                      <div className={`flex h-9 w-9 items-center justify-center rounded-lg font-display font-bold text-sm ${
-                        product.isActive ? 'bg-brand-50 text-brand-600' : 'bg-slate-100 text-slate-400'
-                      }`}>
-                        {product.name.charAt(0)}
-                      </div>
+                      {product.image ? (
+                        <img src={getImageUrl(product.image)} alt={product.name} className="h-9 w-9 rounded-lg object-cover" />
+                      ) : (
+                        <div className={`flex h-9 w-9 items-center justify-center rounded-lg font-display font-bold text-sm ${
+                          product.isActive ? 'bg-brand-50 text-brand-600' : 'bg-slate-100 text-slate-400'
+                        }`}>
+                          {product.name.charAt(0)}
+                        </div>
+                      )}
                       <div>
                         <p className="text-sm font-medium text-slate-800">{product.name}</p>
                         {product.barcode && (
@@ -312,6 +317,8 @@ function FormModal({ tab, editing, categories, onClose, onSaved }) {
           lowStock: editing?.lowStock || 5,
           barcode: editing?.barcode || '',
           categoryId: editing?.category?.id || editing?.categoryId || '',
+          image: editing?.image || '',
+          vegType: editing?.vegType || '',
         }
       : { name: editing?.name || '' }
   );
@@ -329,6 +336,8 @@ function FormModal({ tab, editing, categories, onClose, onSaved }) {
             stock: parseInt(form.stock, 10),
             lowStock: parseInt(form.lowStock, 10),
             categoryId: form.categoryId || undefined,
+            image: form.image || undefined,
+            vegType: form.vegType || undefined,
           }
         : { name: form.name };
 
@@ -426,6 +435,33 @@ function FormModal({ tab, editing, categories, onClose, onSaved }) {
                   placeholder="Optional"
                   className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
                 />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">Image URL</label>
+                <input
+                  value={form.image}
+                  onChange={(e) => setForm({ ...form, image: e.target.value })}
+                  placeholder="https://example.com/image.jpg"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                />
+                {form.image && (
+                  <div className="mt-2 relative w-20 h-20 rounded-xl overflow-hidden border border-[var(--color-border)]">
+                    <img src={getImageUrl(form.image)} alt="Preview" className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">Food Type</label>
+                <select
+                  value={form.vegType}
+                  onChange={(e) => setForm({ ...form, vegType: e.target.value })}
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                >
+                  <option value="">Not specified</option>
+                  <option value="veg">Veg</option>
+                  <option value="non-veg">Non-Veg</option>
+                  <option value="egg">Egg</option>
+                </select>
               </div>
             </>
           )}
