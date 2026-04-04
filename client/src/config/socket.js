@@ -12,7 +12,9 @@ export const connectSocket = (token) => {
     socket = null;
   }
 
-  socket = io(import.meta.env.VITE_SOCKET_URL || '/', {
+  const socketUrl = import.meta.env.VITE_SOCKET_URL || window.location.origin;
+
+  socket = io(socketUrl, {
     auth: { token },
     transports: ['websocket', 'polling'],
     reconnection: true,
