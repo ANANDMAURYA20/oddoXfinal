@@ -1,43 +1,34 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Building2, Users, ShoppingBag, Package, LogOut, ChevronLeft, ChevronRight, Power, Trash2 } from 'lucide-react';
+import { Search, Building2, Users, ShoppingBag, Package, LogOut, ChevronLeft, ChevronRight, Power, Trash2, RefreshCcw } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useQueryClient } from '@tanstack/react-query';
 import api from '../config/api';
 import useAuthStore from '../stores/useAuthStore';
+import { useAdminAdmins } from '../hooks/useAdminAdmins';
 
 export default function AdminDashboardPage() {
-  const [admins, setAdmins] = useState([]);
-  const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    fetchAdmins();
-  }, [pagination.page]);
+  const { 
+    data, 
+    isLoading, 
+    isFetching 
+  } = useAdminAdmins(page, search);
 
-  const fetchAdmins = async () => {
-    try {
-      setLoading(true);
-      const params = { page: pagination.page, limit: 10 };
-      if (search) params.search = search;
-      const { data } = await api.get('/tenants/admins', { params });
-      setAdmins(data.data.admins);
-      setPagination((prev) => ({ ...prev, ...data.data.pagination }));
-    } catch (err) {
-      console.error('Failed to fetch tenant admins:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const admins = data?.admins || [];
+  const pagination = data?.pagination || { page: 1, totalPages: 1, total: 0 };
 
   const handleSearch = (e) => {
     e.preventDefault();
-    setPagination((prev) => ({ ...prev, page: 1 }));
-    fetchAdmins();
+    setPage(1);
+    // React Query will automatically refetch because 'search' is part of the queryKey
   };
 
   const handleLogout = () => {
@@ -49,7 +40,8 @@ export default function AdminDashboardPage() {
     try {
       setActionLoading(adminId);
       await api.patch(`/tenants/admins/${adminId}/toggle-status`);
-      fetchAdmins();
+      // Invalidate the cache to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['admin', 'admins'] });
     } catch (err) {
       console.error('Failed to toggle admin status:', err);
     } finally {
@@ -62,7 +54,8 @@ export default function AdminDashboardPage() {
       setActionLoading(tenantId);
       await api.delete(`/tenants/${tenantId}/permanent`);
       setDeleteConfirm(null);
-      fetchAdmins();
+      // Invalidate the cache to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['admin', 'admins'] });
     } catch (err) {
       console.error('Failed to delete tenant:', err);
     } finally {
@@ -111,11 +104,19 @@ export default function AdminDashboardPage() {
       <div className="mx-auto max-w-7xl p-6 space-y-6">
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="font-display text-2xl font-bold text-slate-900">Tenant Admins</h1>
-            <p className="mt-0.5 text-sm text-slate-500">
-              {pagination.total} registered tenant admin{pagination.total !== 1 ? 's' : ''}
-            </p>
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 className="font-display text-2xl font-bold text-slate-900">Tenant Admins</h1>
+              <p className="mt-0.5 text-sm text-slate-500">
+                {pagination.total} registered tenant admin{pagination.total !== 1 ? 's' : ''}
+              </p>
+            </div>
+            {isFetching && !isLoading && (
+              <div className="flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-[10px] font-semibold text-brand-600 animate-pulse">
+                <RefreshCcw size={10} className="animate-spin-slow" />
+                Refreshing...
+              </div>
+            )}
           </div>
           <form onSubmit={handleSearch} className="relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -130,7 +131,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Table */}
-        {loading ? (
+        {isLoading ? (
           <div className="flex h-64 items-center justify-center">
             <div className="h-8 w-8 animate-spin rounded-full border-3 border-brand-200 border-t-brand-600" />
           </div>
@@ -276,14 +277,14 @@ export default function AdminDashboardPage() {
                 </p>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setPagination((p) => ({ ...p, page: p.page - 1 }))}
+                    onClick={() => setPage((p) => p - 1)}
                     disabled={pagination.page <= 1}
                     className="rounded-lg border border-[var(--color-border)] p-2 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
                     <ChevronLeft size={16} />
                   </button>
                   <button
-                    onClick={() => setPagination((p) => ({ ...p, page: p.page + 1 }))}
+                    onClick={() => setPage((p) => p + 1)}
                     disabled={pagination.page >= pagination.totalPages}
                     className="rounded-lg border border-[var(--color-border)] p-2 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >

@@ -71,18 +71,16 @@ export default function POSPage() {
       // Determine which items are NEW or have INCREASED quantity since last KOT
       const existing = cart.heldTables[tableNum];
       const previousKotItems = existing?.kotItems || [];
+      const activeOrderId = existing?.activeOrderId;
 
       const newItems = [];
       for (const item of cart.items) {
         const prev = previousKotItems.find((k) => k.productId === item.productId);
         if (!prev) {
-          // Brand new item — send full quantity
           newItems.push({ productId: item.productId, quantity: item.quantity });
         } else if (item.quantity > prev.quantity) {
-          // Quantity increased — send only the difference
           newItems.push({ productId: item.productId, quantity: item.quantity - prev.quantity });
         }
-        // If quantity is same or decreased, skip — already sent to kitchen
       }
 
       if (newItems.length === 0) {
@@ -90,18 +88,27 @@ export default function POSPage() {
         return;
       }
 
-      // Create order with only new/changed items
-      const payload = {
-        items: newItems,
-        paymentMethod: 'CASH',
-        discount: cart.discount,
-        note: `Dine-in | Table ${tableNum} | KOT`,
-      };
-      await api.post('/orders', payload);
+      let orderId = activeOrderId;
+
+      if (activeOrderId) {
+        // APPEND to existing order
+        await api.patch(`/orders/${activeOrderId}/items`, { items: newItems });
+      } else {
+        // CREATE new order
+        const payload = {
+          items: newItems,
+          paymentMethod: 'CASH',
+          discount: cart.discount,
+          note: `Dine-in | Table ${tableNum}`,
+          status: 'PENDING',
+        };
+        const { data } = await api.post('/orders', payload);
+        orderId = data.data.id;
+      }
 
       // Mark KOT sent in store, then auto-hold the table
-      cart.sendKot();
-      cart.holdTable(tableNum);
+      cart.sendKot(orderId);
+      cart.holdTable(tableNum, orderId);
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to send KOT');
     }
@@ -640,19 +647,52 @@ function CheckoutModal({ onClose, cart }) {
     if (!method) return;
     setProcessing(true);
     try {
-      const payload = {
-        items: cart.items.map((i) => ({
-          productId: i.productId,
-          quantity: i.quantity,
-        })),
-        paymentMethod: method,
-        discount: cart.discount,
-        note: cart.orderType === 'dine-in' && cart.activeTable
-          ? `Dine-in | Table ${cart.activeTable}`
-          : cart.orderType === 'takeaway' ? 'Takeaway' : undefined,
-      };
-      const { data } = await api.post('/orders', payload);
-      setOrderNumber(data.data.orderNumber);
+      const activeTable = cart.activeTable;
+      const existing = cart.orderType === 'dine-in' && activeTable ? cart.heldTables[activeTable] : null;
+      const activeOrderId = existing?.activeOrderId;
+
+      if (activeOrderId) {
+        // 1. Sync any remaining unsent items to the order first
+        const previousKotItems = existing?.kotItems || [];
+        const unsentItems = [];
+        for (const item of cart.items) {
+          const prev = previousKotItems.find((k) => k.productId === item.productId);
+          if (!prev) {
+            unsentItems.push({ productId: item.productId, quantity: item.quantity });
+          } else if (item.quantity > prev.quantity) {
+            unsentItems.push({ productId: item.productId, quantity: item.quantity - prev.quantity });
+          }
+        }
+
+        if (unsentItems.length > 0) {
+          await api.patch(`/orders/${activeOrderId}/items`, { items: unsentItems });
+        }
+
+        // 2. Mark order as COMPLETED and PAID
+        const { data } = await api.patch(`/orders/${activeOrderId}/status`, { 
+          status: 'COMPLETED',
+          paymentMethod: method, 
+          paymentStatus: 'PAID' 
+        });
+        setOrderNumber(data.data.orderNumber);
+      } else {
+        // CREATE new order (for Takeaway or Dine-in with no KOT)
+        const payload = {
+          items: cart.items.map((i) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+          })),
+          paymentMethod: method,
+          discount: cart.discount,
+          note: cart.orderType === 'dine-in' && cart.activeTable
+            ? `Dine-in | Table ${cart.activeTable}`
+            : cart.orderType === 'takeaway' ? 'Takeaway' : undefined,
+          status: 'COMPLETED', // Directly completed on payment
+        };
+        const { data } = await api.post('/orders', payload);
+        setOrderNumber(data.data.orderNumber);
+      }
+
       setSuccess(true);
       cart.clearCart();
     } catch (err) {

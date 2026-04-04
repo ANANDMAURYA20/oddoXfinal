@@ -1,50 +1,43 @@
-import { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, X, Package, Tag, Search, ToggleLeft, ToggleRight } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Plus, Pencil, Trash2, X, Package, Tag, Search, ToggleLeft, ToggleRight, RefreshCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useQueryClient } from '@tanstack/react-query';
 import api from '../config/api';
+import { useProducts, useCategories } from '../hooks/useInventory';
 
 export default function InventoryPage() {
   const [tab, setTab] = useState('products'); // products | categories
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // all | active | inactive
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    fetchProducts(statusFilter);
-    fetchCategories();
-  }, [statusFilter]);
+  const { 
+    data: productData, 
+    isLoading: loadingProducts,
+    isFetching: fetchingProducts 
+  } = useProducts({ 
+    status: statusFilter,
+    search: search // Note: in a high-traffic app, we might want to debounce this
+  });
 
-  const fetchProducts = async (status) => {
-    try {
-      setLoading(true);
-      const params = { limit: 100 };
-      if (status === 'inactive') params.isActive = 'false';
-      else if (status === 'all') params.isActive = 'all';
-      // 'active' uses server default (isActive: true)
-      const { data } = await api.get('/products', { params });
-      setProducts(data.data.products);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
-  };
+  const { 
+    data: categories = [], 
+    isLoading: loadingCategories,
+    isFetching: fetchingCategories 
+  } = useCategories();
 
-  const fetchCategories = async () => {
-    try {
-      const { data } = await api.get('/categories');
-      setCategories(data.data);
-    } catch (err) { console.error(err); }
-  };
+  const products = productData?.products || [];
+  
+  const isInitialLoading = (tab === 'products' ? (loadingProducts && products.length === 0) : (loadingCategories && categories.length === 0));
+  const isRefreshing = (tab === 'products' ? fetchingProducts : fetchingCategories);
 
   const toggleProductStatus = async (product) => {
     const newStatus = !product.isActive;
     try {
       await api.patch(`/products/${product.id}`, { isActive: newStatus });
-      setProducts((p) =>
-        p.map((x) => (x.id === product.id ? { ...x, isActive: newStatus } : x))
-      );
+      queryClient.invalidateQueries({ queryKey: ['inventory', 'products'] });
     } catch (err) { alert(err.response?.data?.message || 'Failed to update status'); }
   };
 
@@ -52,9 +45,7 @@ export default function InventoryPage() {
     if (!confirm('Delete this product? It will be marked as inactive.')) return;
     try {
       await api.delete(`/products/${id}`);
-      setProducts((p) =>
-        p.map((x) => (x.id === id ? { ...x, isActive: false } : x))
-      );
+      queryClient.invalidateQueries({ queryKey: ['inventory', 'products'] });
     } catch (err) { alert(err.response?.data?.message || 'Failed'); }
   };
 
@@ -62,21 +53,30 @@ export default function InventoryPage() {
     if (!confirm('Delete this category?')) return;
     try {
       await api.delete(`/categories/${id}`);
-      setCategories((c) => c.filter((x) => x.id !== id));
+      queryClient.invalidateQueries({ queryKey: ['inventory', 'categories'] });
+      // Also invalidate products since they might refer to this category
+      queryClient.invalidateQueries({ queryKey: ['inventory', 'products'] });
     } catch (err) { alert(err.response?.data?.message || 'Failed'); }
   };
 
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  );
+  // The search is handled by useProducts queryKey, so we don't need additional local filtering here
+  const displayProducts = products;
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-slate-900">Inventory</h1>
-          <p className="mt-0.5 text-sm text-slate-500">Manage your products and categories</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="font-display text-2xl font-bold text-slate-900">Inventory</h1>
+            <p className="mt-0.5 text-sm text-slate-500">Manage your products and categories</p>
+          </div>
+          {isRefreshing && !loading && (
+            <div className="flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-[10px] font-semibold text-brand-600 animate-pulse">
+              <RefreshCcw size={10} className="animate-spin-slow" />
+              Refreshing...
+            </div>
+          )}
         </div>
         <button
           onClick={() => { setEditing(null); setShowModal(true); }}
@@ -142,8 +142,12 @@ export default function InventoryPage() {
         </div>
       )}
 
-      {/* Products Table */}
-      {tab === 'products' && (
+      {/* Content */}
+      {isInitialLoading ? (
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-3 border-brand-200 border-t-brand-600" />
+        </div>
+      ) : tab === 'products' ? (
         <div className="rounded-2xl border border-[var(--color-border)] bg-white shadow-sm overflow-hidden">
           <table className="w-full">
             <thead>
@@ -157,7 +161,7 @@ export default function InventoryPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border)]">
-              {filteredProducts.map((product) => (
+              {displayProducts.map((product) => (
                 <tr key={product.id} className={`hover:bg-slate-50/50 transition-colors ${!product.isActive ? 'opacity-60' : ''}`}>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
@@ -226,17 +230,14 @@ export default function InventoryPage() {
               ))}
             </tbody>
           </table>
-          {filteredProducts.length === 0 && (
+          {displayProducts.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-slate-300">
               <Package size={36} strokeWidth={1.5} />
               <p className="mt-2 text-sm">No products found</p>
             </div>
           )}
         </div>
-      )}
-
-      {/* Categories List */}
-      {tab === 'categories' && (
+      ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {categories.map((cat) => (
             <div
@@ -288,8 +289,8 @@ export default function InventoryPage() {
             onSaved={() => {
               setShowModal(false);
               setEditing(null);
-              if (tab === 'products') fetchProducts(statusFilter);
-              else fetchCategories();
+              // Invalidate cache instead of manual fetch
+              queryClient.invalidateQueries({ queryKey: ['inventory'] });
             }}
           />
         )}

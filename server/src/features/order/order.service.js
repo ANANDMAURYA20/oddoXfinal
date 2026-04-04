@@ -16,7 +16,7 @@ const generateOrderNumber = () => {
  * Atomically: validate stock → deduct stock → create order + items.
  */
 const createOrder = async (tenantId, cashierId, data) => {
-  const { items, paymentMethod, customerId, discount = 0, note } = data;
+  const { items, paymentMethod, customerId, discount = 0, note, status = "PENDING" } = data;
 
   const order = await prisma.$transaction(async (tx) => {
     // 1. Fetch all products and validate they belong to this tenant
@@ -76,7 +76,7 @@ const createOrder = async (tenantId, cashierId, data) => {
         tax,
         totalAmount,
         paymentMethod,
-        status: "PENDING", // Start in PENDING for Kitchen Display
+        status, // Custom status (e.g. COMPLETED for checkout-only orders)
         paymentStatus: "PAID",
         note,
         cashierId,
@@ -87,7 +87,7 @@ const createOrder = async (tenantId, cashierId, data) => {
         },
       },
       include: {
-        items: { include: { product: { select: { id: true, name: true } } } },
+        items: { include: { product: { select: { id: true, name: true, categoryId: true } } } },
         cashier: { select: { id: true, name: true } },
         customer: { select: { id: true, name: true, phone: true } },
       },
@@ -275,4 +275,105 @@ const refundOrder = async (tenantId, id) => {
   return refundedOrder;
 };
 
-module.exports = { createOrder, listOrders, getOrderById, updateOrderStatus, refundOrder };
+/**
+ * Append new items to an existing order (used for KOT on held tables).
+ */
+const addItemsToOrder = async (tenantId, id, { items }) => {
+  const order = await prisma.order.findFirst({
+    where: { id, tenantId },
+    include: { items: true },
+  });
+
+  if (!order) {
+    throw ApiError.notFound("Order not found");
+  }
+
+  // Calculate additional total from new items
+  const updatedOrder = await prisma.$transaction(async (tx) => {
+    // 1. Fetch products and validate stock
+    const productIds = items.map((i) => i.productId);
+    const products = await tx.product.findMany({
+      where: { id: { in: productIds }, tenantId, isActive: true },
+    });
+
+    if (products.length !== productIds.length) {
+      throw ApiError.badRequest("One or more products are invalid or inactive");
+    }
+
+    const productMap = new Map(products.map((p) => [p.id, p]));
+    let additionalSubtotal = 0;
+    const newOrderItems = [];
+
+    for (const item of items) {
+      const product = productMap.get(item.productId);
+      if (product.stock < item.quantity) {
+        throw ApiError.badRequest(`Insufficient stock for "${product.name}"`);
+      }
+      additionalSubtotal += product.price * item.quantity;
+      newOrderItems.push({
+        productId: item.productId,
+        quantity: item.quantity,
+        price: product.price,
+      });
+
+      // 2. Deduct stock
+      await tx.product.update({
+        where: { id: item.productId },
+        data: { stock: { decrement: item.quantity } },
+      });
+    }
+
+    // 3. Update existing order totals
+    // Get current tax rate for the tenant
+    const settings = await tx.settings.findUnique({ where: { tenantId } });
+    const taxRate = settings?.taxRate || 0;
+
+    const newSubtotal = order.subtotal + additionalSubtotal;
+    const newTax = (newSubtotal - order.discount) * (taxRate / 100);
+    const newTotal = newSubtotal - order.discount + newTax;
+
+    return tx.order.update({
+      where: { id },
+      data: {
+        subtotal: newSubtotal,
+        tax: newTax,
+        totalAmount: newTotal,
+        items: {
+          create: newOrderItems,
+        },
+      },
+      include: {
+        items: { include: { product: { select: { id: true, name: true, categoryId: true } } } },
+        cashier: { select: { id: true, name: true } },
+      },
+    });
+  });
+
+  // Emit event to update KDS screens with the expanded order
+  emitToTenant(tenantId, "order:updated", updatedOrder);
+
+  // KDS Station room emissions
+  try {
+    const kdsStations = await prisma.kdsStation.findMany({ where: { tenantId, isActive: true } });
+    if (kdsStations.length > 0) {
+      // Find categories of NEWLY added items for station routing
+      const products = await prisma.product.findMany({
+        where: { id: { in: items.map(i => i.productId) } },
+        select: { categoryId: true },
+      });
+      const newCategoryIds = [...new Set(products.map(p => p.categoryId).filter(Boolean))];
+
+      for (const station of kdsStations) {
+        if (station.categoryIds.length === 0 || station.categoryIds.some(cid => newCategoryIds.includes(cid))) {
+          emitToKdsStation(station.id, "order:updated", updatedOrder);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("KDS station update error:", err);
+  }
+
+  return updatedOrder;
+};
+
+module.exports = { createOrder, listOrders, getOrderById, updateOrderStatus, refundOrder, addItemsToOrder };

@@ -52,10 +52,10 @@ const useCartStore = create((set, get) => ({
     }
   },
 
-  holdTable: (tableNumber) => {
+  holdTable: (tableNumber, orderId = null) => {
     const tbl = tableNumber || get().activeTable;
     if (!tbl) return;
-
+    
     const existing = get().heldTables[tbl];
     set({
       heldTables: {
@@ -66,6 +66,7 @@ const useCartStore = create((set, get) => ({
           discountCode: get().discountCode,
           kotSent: existing?.kotSent || false,
           kotItems: existing?.kotItems || [],
+          activeOrderId: orderId || existing?.activeOrderId || null,
         },
       },
       items: [],
@@ -76,7 +77,7 @@ const useCartStore = create((set, get) => ({
   },
 
   // Mark current items as sent to kitchen (KOT)
-  sendKot: () => {
+  sendKot: (orderId = null) => {
     const tbl = get().activeTable;
     if (!tbl) return;
 
@@ -102,6 +103,7 @@ const useCartStore = create((set, get) => ({
           discountCode: get().discountCode,
           kotSent: true,
           kotItems: allKotItems,
+          activeOrderId: orderId || existing?.activeOrderId || null,
         },
       },
     });

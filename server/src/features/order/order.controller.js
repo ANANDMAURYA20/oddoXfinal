@@ -34,4 +34,9 @@ const refundOrder = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, order, "Order refunded successfully"));
 });
 
-module.exports = { createOrder, listOrders, getOrderById, updateOrderStatus, refundOrder };
+const addItemsToOrder = asyncHandler(async (req, res) => {
+  const order = await orderService.addItemsToOrder(req.tenantId, req.params.id, req.body);
+  res.status(200).json(new ApiResponse(200, order, "Items added to order"));
+});
+
+module.exports = { createOrder, listOrders, getOrderById, updateOrderStatus, refundOrder, addItemsToOrder };
