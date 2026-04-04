@@ -1,0 +1,232 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
+enum Plan {
+  TRIAL
+  BASIC
+  PRO
+}
+
+enum Role {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  CASHIER
+}
+
+enum OrderStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  UPI
+  SPLIT
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FLAT
+}
+
+// ─────────────────────────────────────────────
+// Multi-Tenant Core
+// ─────────────────────────────────────────────
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  address   String?
+  plan      Plan     @default(TRIAL)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users      User[]
+  products   Product[]
+  categories Category[]
+  orders     Order[]
+  customers  Customer[]
+  discounts  Discount[]
+  settings   Settings?
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(CASHIER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantId String?
+  tenant   Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  orders Order[]
+
+  @@index([tenantId])
+}
+
+// ─────────────────────────────────────────────
+// Inventory & Catalog
+// ─────────────────────────────────────────────
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  products Product[]
+
+  @@unique([name, tenantId])
+  @@index([tenantId])
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  price       Float
+  costPrice   Float?
+  stock       Int      @default(0)
+  lowStock    Int      @default(5)
+  barcode     String?
+  image       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  orderItems OrderItem[]
+
+  @@index([tenantId])
+  @@index([barcode])
+}
+
+// ─────────────────────────────────────────────
+// Orders & Billing
+// ─────────────────────────────────────────────
+
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String?
+  email     String?
+  createdAt DateTime @default(now())
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  orders Order[]
+
+  @@index([tenantId])
+}
+
+model Order {
+  id            String        @id @default(uuid())
+  orderNumber   String        @unique
+  subtotal      Float
+  discount      Float         @default(0)
+  tax           Float         @default(0)
+  totalAmount   Float
+  status        OrderStatus   @default(COMPLETED)
+  paymentMethod PaymentMethod
+  paymentStatus PaymentStatus @default(PAID)
+  note          String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  cashierId String
+  cashier   User   @relation(fields: [cashierId], references: [id])
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  items OrderItem[]
+
+  @@index([tenantId])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id       String @id @default(uuid())
+  quantity Int
+  price    Float
+
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+// ─────────────────────────────────────────────
+// Discounts
+// ─────────────────────────────────────────────
+
+model Discount {
+  id        String       @id @default(uuid())
+  code      String
+  type      DiscountType
+  value     Float
+  isActive  Boolean      @default(true)
+  expiresAt DateTime?
+  createdAt DateTime     @default(now())
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([code, tenantId])
+  @@index([tenantId])
+}
+
+// ─────────────────────────────────────────────
+// Tenant Settings
+// ─────────────────────────────────────────────
+
+model Settings {
+  id           String @id @default(uuid())
+  storeName    String @default("")
+  currency     String @default("INR")
+  taxRate      Float  @default(0)
+  taxLabel     String @default("GST")
+  receiptNote  String @default("Thank you for shopping with us!")
+
+  tenantId String @unique
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
