@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 
 const useCustomerStore = create((set, get) => ({
+  // Customer details (required)
+  customerName: '',
+  customerPhone: '',
+
   // Session & restaurant info
   tenantId: null,
   tableNumber: null,
@@ -34,6 +38,8 @@ const useCustomerStore = create((set, get) => ({
     }),
 
   setLocationVerified: (v) => set({ locationVerified: v }),
+
+  setCustomerDetails: (name, phone) => set({ customerName: name, customerPhone: phone }),
 
   // Cart operations
   addItem: (product, quantity = 1, selectedAddons = [], note = '') => {
@@ -111,6 +117,8 @@ const useCustomerStore = create((set, get) => ({
   // Reset everything
   resetSession: () =>
     set({
+      customerName: '',
+      customerPhone: '',
       tenantId: null,
       tableNumber: null,
       sessionToken: null,

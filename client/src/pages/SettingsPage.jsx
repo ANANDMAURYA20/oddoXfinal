@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Store, Percent, Receipt, DollarSign, CreditCard, QrCode, UtensilsCrossed, MapPin, Smartphone, Shield } from 'lucide-react';
+import { Save, Store, Percent, Receipt, DollarSign, CreditCard, QrCode, UtensilsCrossed, MapPin, Smartphone, Shield, FileText, Phone, Image } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../config/api';
 
@@ -13,6 +13,11 @@ export default function SettingsPage() {
     paymentMethods: [],
     upiId: '',
     totalTables: 0,
+    storeAddress: '',
+    storePhone: '',
+    gstNumber: '',
+    fssaiNumber: '',
+    storeLogo: '',
     qrOrderingEnabled: false,
     geofenceEnabled: false,
     restaurantLat: '',
@@ -41,6 +46,11 @@ export default function SettingsPage() {
           paymentMethods: data.data.paymentMethods || [],
           upiId: data.data.upiId || '',
           totalTables: data.data.totalTables || 0,
+          storeAddress: data.data.storeAddress || '',
+          storePhone: data.data.storePhone || '',
+          gstNumber: data.data.gstNumber || '',
+          fssaiNumber: data.data.fssaiNumber || '',
+          storeLogo: data.data.storeLogo || '',
           qrOrderingEnabled: data.data.qrOrderingEnabled || false,
           geofenceEnabled: data.data.geofenceEnabled || false,
           restaurantLat: data.data.restaurantLat || '',
@@ -110,6 +120,79 @@ export default function SettingsPage() {
             placeholder="My Awesome Store"
             className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
           />
+        </div>
+
+        {/* Bill / Receipt Details */}
+        <div className="border-t border-[var(--color-border)] pt-6">
+          <h3 className="flex items-center gap-2 text-base font-semibold text-slate-800 mb-4">
+            <FileText size={18} className="text-indigo-500" />
+            Bill / Receipt Details
+          </h3>
+
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">Store Logo URL</label>
+              <input
+                value={form.storeLogo}
+                onChange={(e) => setForm({ ...form, storeLogo: e.target.value })}
+                placeholder="https://example.com/logo.png or Google Drive link"
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+              />
+              {form.storeLogo && (
+                <div className="mt-2 w-16 h-16 rounded-lg overflow-hidden border border-[var(--color-border)]">
+                  <img src={form.storeLogo} alt="Logo" className="w-full h-full object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2 mb-1.5 text-sm font-medium text-slate-700">
+                <MapPin size={14} className="text-slate-400" />
+                Store Address
+              </label>
+              <textarea
+                value={form.storeAddress}
+                onChange={(e) => setForm({ ...form, storeAddress: e.target.value })}
+                placeholder="123 Main Street, City, State - PIN"
+                rows={2}
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none resize-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+              />
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2 mb-1.5 text-sm font-medium text-slate-700">
+                <Phone size={14} className="text-slate-400" />
+                Store Phone
+              </label>
+              <input
+                value={form.storePhone}
+                onChange={(e) => setForm({ ...form, storePhone: e.target.value })}
+                placeholder="+91 9876543210"
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">GST Number</label>
+                <input
+                  value={form.gstNumber}
+                  onChange={(e) => setForm({ ...form, gstNumber: e.target.value })}
+                  placeholder="e.g., 22AAAAA0000A1Z5"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">FSSAI Number</label>
+                <input
+                  value={form.fssaiNumber}
+                  onChange={(e) => setForm({ ...form, fssaiNumber: e.target.value })}
+                  placeholder="e.g., 10020011000123"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Currency */}

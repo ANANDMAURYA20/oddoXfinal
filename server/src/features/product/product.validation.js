@@ -8,7 +8,8 @@ const createProductSchema = z.object({
   stock: z.number().int().min(0).default(0),
   lowStock: z.number().int().min(0).default(5),
   barcode: z.string().optional(),
-  image: z.string().url().optional(),
+  image: z.string().optional(),
+  vegType: z.string().optional(),
   categoryId: z.string().uuid().optional(),
 });
 
@@ -20,7 +21,8 @@ const updateProductSchema = z.object({
   stock: z.number().int().min(0).optional(),
   lowStock: z.number().int().min(0).optional(),
   barcode: z.string().optional(),
-  image: z.string().url().optional(),
+  image: z.string().nullable().optional(),
+  vegType: z.string().nullable().optional(),
   categoryId: z.string().uuid().nullable().optional(),
   isActive: z.boolean().optional(),
 });

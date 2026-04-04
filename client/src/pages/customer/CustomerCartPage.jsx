@@ -5,6 +5,7 @@ import { ChevronLeft, Plus, Minus, Trash2, ShoppingBag, Loader2 } from 'lucide-r
 import axios from 'axios';
 import useCustomerStore from '../../stores/useCustomerStore';
 import useThemeStore from '../../stores/useThemeStore';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -32,6 +33,8 @@ export default function CustomerCartPage() {
       const payload = {
         tableNumber,
         sessionToken: store.sessionToken,
+        customerName: store.customerName,
+        customerPhone: store.customerPhone,
         items: store.items.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
@@ -108,7 +111,7 @@ export default function CustomerCartPage() {
                 {/* Item image */}
                 <div className="w-16 h-16 rounded-xl bg-orange-50 shrink-0 overflow-hidden">
                   {item.image ? (
-                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                    <img src={getImageUrl(item.image)} alt={item.name} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-2xl">🍽️</div>
                   )}

@@ -165,7 +165,7 @@ const getProduct = async (tenantId, productId) => {
  * Place an order from QR (customer-facing, no auth).
  */
 const placeOrder = async (tenantId, data) => {
-  const { items, tableNumber, sessionToken, note } = data;
+  const { items, tableNumber, sessionToken, note, customerName, customerPhone } = data;
   const tableNum = parseInt(tableNumber);
 
   // Validate session
@@ -260,7 +260,11 @@ const placeOrder = async (tenantId, data) => {
         paymentMethod: "CASH",
         status: "PENDING",
         paymentStatus: "PENDING",
-        note: note || null,
+        note: [
+          customerName ? `Customer: ${customerName}` : null,
+          customerPhone ? `Phone: ${customerPhone}` : null,
+          note || null,
+        ].filter(Boolean).join(' | ') || null,
         tenantId,
         tableNumber: tableNum,
         sessionId: session.id,

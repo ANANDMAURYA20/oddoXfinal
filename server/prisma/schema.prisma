@@ -291,6 +291,13 @@ model Settings {
   totalTables    Int      @default(0)
   onboardingCompleted Boolean @default(false)
 
+  // Bill / Receipt details
+  storeAddress  String   @default("")
+  storePhone    String   @default("")
+  gstNumber     String   @default("")
+  fssaiNumber   String   @default("")
+  storeLogo     String   @default("") // URL
+
   // QR Ordering settings
   qrOrderingEnabled Boolean @default(false)
   restaurantLat     Float?

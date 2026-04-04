@@ -5,6 +5,7 @@ import { ChevronLeft, Plus, Minus, Check, Leaf, Drumstick } from 'lucide-react';
 import axios from 'axios';
 import useCustomerStore from '../../stores/useCustomerStore';
 import useThemeStore from '../../stores/useThemeStore';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -79,7 +80,7 @@ export default function CustomerProductPage() {
       {/* Product image */}
       <div className="relative h-64 bg-gradient-to-br from-orange-100 to-amber-50">
         {product.image ? (
-          <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+          <img src={getImageUrl(product.image)} alt={product.name} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <span className="text-7xl">🍽️</span>
