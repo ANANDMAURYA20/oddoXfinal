@@ -216,6 +216,7 @@ export default function CustomerProductPage() {
       </motion.div>
 
       {/* Bottom add to cart */}
+      {store.qrOrderingMode !== 'menu' && (
       <div className={`fixed bottom-0 left-0 right-0 p-4 ${dark ? 'bg-gray-900/95' : 'bg-white/95'} backdrop-blur-md border-t ${dark ? 'border-gray-800' : 'border-gray-200'}`}>
         <button
           onClick={handleAddToCart}
@@ -225,6 +226,7 @@ export default function CustomerProductPage() {
           <span className="text-lg">{sym} {totalPrice.toFixed(2)}</span>
         </button>
       </div>
+      )}
     </div>
   );
 }

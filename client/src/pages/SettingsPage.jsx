@@ -19,6 +19,7 @@ export default function SettingsPage() {
     fssaiNumber: '',
     storeLogo: '',
     qrOrderingEnabled: false,
+    qrOrderingMode: 'order',
     geofenceEnabled: false,
     restaurantLat: '',
     restaurantLng: '',
@@ -52,6 +53,7 @@ export default function SettingsPage() {
           fssaiNumber: data.data.fssaiNumber || '',
           storeLogo: data.data.storeLogo || '',
           qrOrderingEnabled: data.data.qrOrderingEnabled || false,
+          qrOrderingMode: data.data.qrOrderingMode || 'order',
           geofenceEnabled: data.data.geofenceEnabled || false,
           restaurantLat: data.data.restaurantLat || '',
           restaurantLng: data.data.restaurantLng || '',
@@ -327,6 +329,42 @@ export default function SettingsPage() {
               />
             </button>
           </div>
+
+          {form.qrOrderingEnabled && (
+            <div className="mt-4">
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">QR Ordering Mode</label>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, qrOrderingMode: 'order' })}
+                  className={`flex-1 p-3 rounded-xl border-2 text-left transition-all ${
+                    form.qrOrderingMode === 'order'
+                      ? 'border-brand-500 bg-brand-50'
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <p className={`text-sm font-semibold ${form.qrOrderingMode === 'order' ? 'text-brand-700' : 'text-slate-700'}`}>
+                    Accept Orders
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5">Customers can browse menu and place orders</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, qrOrderingMode: 'menu' })}
+                  className={`flex-1 p-3 rounded-xl border-2 text-left transition-all ${
+                    form.qrOrderingMode === 'menu'
+                      ? 'border-amber-500 bg-amber-50'
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <p className={`text-sm font-semibold ${form.qrOrderingMode === 'menu' ? 'text-amber-700' : 'text-slate-700'}`}>
+                    Menu Only
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5">Customers can view menu but must order at counter</p>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Geofencing */}

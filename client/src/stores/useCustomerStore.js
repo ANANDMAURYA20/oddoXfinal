@@ -13,6 +13,7 @@ const useCustomerStore = create((set, get) => ({
   currency: 'INR',
   taxRate: 0,
   taxLabel: 'GST',
+  qrOrderingMode: 'order', // 'order' or 'menu'
   geofence: null,
   locationVerified: false,
 
@@ -34,6 +35,7 @@ const useCustomerStore = create((set, get) => ({
       currency: data.currency || 'INR',
       taxRate: data.taxRate || 0,
       taxLabel: data.taxLabel || 'GST',
+      qrOrderingMode: data.qrOrderingMode || 'order',
       geofence: data.geofence || null,
     }),
 
@@ -126,6 +128,7 @@ const useCustomerStore = create((set, get) => ({
       currency: 'INR',
       taxRate: 0,
       taxLabel: 'GST',
+      qrOrderingMode: 'order',
       geofence: null,
       locationVerified: false,
       items: [],

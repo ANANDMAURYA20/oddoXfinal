@@ -300,6 +300,7 @@ model Settings {
 
   // QR Ordering settings
   qrOrderingEnabled Boolean @default(false)
+  qrOrderingMode    String  @default("order") // "order" = accept orders, "menu" = view menu only
   restaurantLat     Float?
   restaurantLng     Float?
   geofenceRadius    Int     @default(100) // in meters

@@ -16,6 +16,7 @@ const updateSettingsSchema = z.object({
   fssaiNumber: z.string().optional(),
   storeLogo: z.string().optional(),
   qrOrderingEnabled: z.boolean().optional(),
+  qrOrderingMode: z.enum(["order", "menu"]).optional(),
   geofenceEnabled: z.boolean().optional(),
   restaurantLat: z.number().nullable().optional(),
   restaurantLng: z.number().nullable().optional(),

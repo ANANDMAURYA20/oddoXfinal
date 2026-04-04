@@ -51,6 +51,7 @@ export default function CustomerLandingPage() {
         currency: info.currency,
         taxRate: info.taxRate,
         taxLabel: info.taxLabel,
+        qrOrderingMode: info.qrOrderingMode,
         geofence: info.geofence,
       });
 

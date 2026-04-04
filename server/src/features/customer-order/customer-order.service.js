@@ -33,6 +33,7 @@ const getRestaurantInfo = async (tenantId) => {
       taxLabel: true,
       totalTables: true,
       qrOrderingEnabled: true,
+      qrOrderingMode: true,
       geofenceEnabled: true,
       restaurantLat: true,
       restaurantLng: true,
@@ -51,6 +52,7 @@ const getRestaurantInfo = async (tenantId) => {
     taxRate: settings?.taxRate || 0,
     taxLabel: settings?.taxLabel || "GST",
     totalTables: settings?.totalTables || 0,
+    qrOrderingMode: settings?.qrOrderingMode || "order", // "order" or "menu"
     geofence: settings?.geofenceEnabled
       ? {
           enabled: true,
@@ -167,6 +169,20 @@ const getProduct = async (tenantId, productId) => {
 const placeOrder = async (tenantId, data) => {
   const { items, tableNumber, sessionToken, note, customerName, customerPhone } = data;
   const tableNum = parseInt(tableNumber);
+
+  // Check if ordering is allowed (not menu-only mode)
+  const settings = await prisma.settings.findUnique({
+    where: { tenantId },
+    select: { qrOrderingEnabled: true, qrOrderingMode: true },
+  });
+
+  if (!settings?.qrOrderingEnabled) {
+    throw ApiError.badRequest("Online ordering is currently disabled");
+  }
+
+  if (settings.qrOrderingMode === "menu") {
+    throw ApiError.badRequest("Online ordering is currently set to menu-only. Please order at the counter.");
+  }
 
   // Validate session
   const session = await prisma.customerSession.findFirst({
