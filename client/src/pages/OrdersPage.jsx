@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Package, Eye, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Package, Eye, Search, Filter, ChevronLeft, ChevronRight, Receipt } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../config/api';
+import BillModal from '../components/BillModal';
 
 const STATUS_BADGE = {
   PENDING: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -17,6 +18,7 @@ export default function OrdersPage() {
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [billOrder, setBillOrder] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -195,14 +197,28 @@ export default function OrdersPage() {
                 <span>Total</span><span>₹{selectedOrder.totalAmount?.toFixed(2)}</span>
               </div>
             </div>
-            <button
-              onClick={() => setSelectedOrder(null)}
-              className="mt-5 w-full rounded-xl bg-slate-100 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-200 transition-colors"
-            >
-              Close
-            </button>
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={() => { setBillOrder(selectedOrder); }}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl border-2 border-brand-200 py-2.5 text-sm font-medium text-brand-600 hover:bg-brand-50 transition-colors"
+              >
+                <Receipt size={14} />
+                View Bill
+              </button>
+              <button
+                onClick={() => setSelectedOrder(null)}
+                className="flex-1 rounded-xl bg-slate-100 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-200 transition-colors"
+              >
+                Close
+              </button>
+            </div>
           </motion.div>
         </div>
+      )}
+
+      {/* Bill Modal */}
+      {billOrder && (
+        <BillModal order={billOrder} onClose={() => setBillOrder(null)} />
       )}
     </div>
   );

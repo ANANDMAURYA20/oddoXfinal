@@ -5,6 +5,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../config/api';
 import { getImageUrl } from '../utils/imageUrl';
+import BillModal from '../components/BillModal';
 import useCartStore from '../stores/useCartStore';
 import useAuthStore from '../stores/useAuthStore';
 
@@ -1289,6 +1290,8 @@ function CheckoutModal({ onClose, cart }) {
   const [processing, setProcessing] = useState(false);
   const [success, setSuccess] = useState(false);
   const [orderNumber, setOrderNumber] = useState('');
+  const [completedOrder, setCompletedOrder] = useState(null);
+  const [showBill, setShowBill] = useState(false);
   const [showUpiQr, setShowUpiQr] = useState(false);
   const [upiId, setUpiId] = useState('');
   const [storeName, setStoreName] = useState('');
@@ -1372,6 +1375,11 @@ function CheckoutModal({ onClose, cart }) {
           paymentStatus: 'PAID'
         });
         setOrderNumber(data.data.orderNumber);
+        // Fetch full order for bill
+        try {
+          const { data: fullOrder } = await api.get(`/orders/${activeOrderId}`);
+          setCompletedOrder(fullOrder.data);
+        } catch {}
       } else {
         // CREATE new order (for Takeaway or Dine-in with no KOT)
         const payload = {
@@ -1389,6 +1397,7 @@ function CheckoutModal({ onClose, cart }) {
         };
         const { data } = await api.post('/orders', payload);
         setOrderNumber(data.data.orderNumber);
+        setCompletedOrder(data.data);
       }
 
       setSuccess(true);
@@ -1423,12 +1432,24 @@ function CheckoutModal({ onClose, cart }) {
             </div>
             <h3 className="font-display text-xl font-bold text-slate-900">Payment Successful</h3>
             <p className="mt-1 text-sm text-slate-500">Order #{orderNumber}</p>
-            <button
-              onClick={onClose}
-              className="mt-6 w-full rounded-xl bg-brand-600 py-3 text-sm font-semibold text-white transition-all hover:bg-brand-700"
-            >
-              New Order
-            </button>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setShowBill(true)}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl border-2 border-brand-200 py-3 text-sm font-semibold text-brand-600 transition-all hover:bg-brand-50"
+              >
+                <Receipt size={16} />
+                View Bill
+              </button>
+              <button
+                onClick={onClose}
+                className="flex-1 rounded-xl bg-brand-600 py-3 text-sm font-semibold text-white transition-all hover:bg-brand-700"
+              >
+                New Order
+              </button>
+            </div>
+            {showBill && completedOrder && (
+              <BillModal order={completedOrder} onClose={() => setShowBill(false)} />
+            )}
           </div>
         ) : showUpiQr ? (
           /* ── UPI QR Code View ── */
