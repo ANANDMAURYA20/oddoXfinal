@@ -62,6 +62,17 @@ const initSocketIO = (httpServer) => {
       }
     });
 
+    // KOT (Kitchen Order Ticket) - forward to kitchen displays in same tenant
+    socket.on("kot:send", (data) => {
+      const tenantRoom = `tenant_${socket.tenantId}`;
+      io.to(tenantRoom).emit("kot:new", {
+        ...data,
+        timestamp: new Date().toISOString(),
+        sentBy: socket.user.id,
+      });
+      logger.info(`🎫 KOT sent to room ${tenantRoom} for Table ${data.tableNumber}`);
+    });
+
     socket.on("disconnect", () => {
       logger.info(`🔌 Socket disconnected: ${socket.id}`);
     });

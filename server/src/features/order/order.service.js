@@ -155,9 +155,9 @@ const listOrders = async (tenantId, { page = 1, limit = 20, status, startDate, e
       take: limit,
       orderBy: { createdAt: "desc" },
       include: {
+        items: { include: { product: { select: { id: true, name: true, categoryId: true } } } },
         cashier: { select: { id: true, name: true } },
         customer: { select: { id: true, name: true } },
-        _count: { select: { items: true } },
       },
     }),
     prisma.order.count({ where }),
@@ -201,10 +201,38 @@ const updateOrderStatus = async (tenantId, id, { status }) => {
   const updatedOrder = await prisma.order.update({
     where: { id },
     data: { status },
+    include: {
+      items: { include: { product: { select: { id: true, name: true, categoryId: true } } } },
+      cashier: { select: { id: true, name: true } },
+    },
   });
 
   // Emit event to update KDS screens
   emitToTenant(tenantId, "order:updated", updatedOrder);
+
+  // Also emit to specific KDS station rooms so station-filtered displays update in real-time
+  try {
+    const kdsStations = await prisma.kdsStation.findMany({
+      where: { tenantId, isActive: true },
+    });
+
+    if (kdsStations.length > 0) {
+      const orderProductIds = updatedOrder.items.map((i) => i.productId);
+      const products = await prisma.product.findMany({
+        where: { id: { in: orderProductIds } },
+        select: { id: true, categoryId: true },
+      });
+      const orderCategoryIds = [...new Set(products.map((p) => p.categoryId).filter(Boolean))];
+
+      for (const station of kdsStations) {
+        if (station.categoryIds.length === 0 || station.categoryIds.some((cid) => orderCategoryIds.includes(cid))) {
+          emitToKdsStation(station.id, "order:updated", updatedOrder);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("KDS station emission error:", err);
+  }
 
   return updatedOrder;
 };

@@ -45,7 +45,11 @@ export default function KDSPage() {
       const socket = connectSocket(token);
 
       socket.on('order:new', (order) => {
-        setOrders((prev) => [order, ...prev]);
+        setOrders((prev) => {
+          // Deduplicate: skip if order already exists (can arrive via both tenant + station rooms)
+          if (prev.some((o) => o.id === order.id)) return prev;
+          return [order, ...prev];
+        });
       });
 
       socket.on('order:updated', (updatedOrder) => {
@@ -61,12 +65,21 @@ export default function KDSPage() {
     }
   }, []);
 
-  // When station is selected, join its socket room
+  // When station is selected, join its socket room (and rejoin on reconnection)
   useEffect(() => {
     if (selectedStationId) {
       const socket = getSocket();
       if (socket) {
         socket.emit('kds:join-station', selectedStationId);
+
+        const handleReconnect = () => {
+          socket.emit('kds:join-station', selectedStationId);
+        };
+        socket.on('connect', handleReconnect);
+
+        return () => {
+          socket.off('connect', handleReconnect);
+        };
       }
     }
   }, [selectedStationId]);
