@@ -16,5 +16,6 @@ router.post("/", authorize("TENANT_ADMIN"), validate(createTableSchema), control
 router.patch("/:id", authorize("TENANT_ADMIN"), validate(updateTableSchema), controller.updateTable);
 router.patch("/:id/status", validate(updateTableStatusSchema), controller.updateTableStatus);
 router.delete("/:id", authorize("TENANT_ADMIN"), controller.deleteTable);
+router.post("/bulk", authorize("TENANT_ADMIN"), controller.bulkCreateTables);
 
 module.exports = router;

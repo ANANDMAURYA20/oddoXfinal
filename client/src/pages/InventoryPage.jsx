@@ -71,7 +71,7 @@ export default function InventoryPage() {
             <h1 className="font-display text-2xl font-bold text-slate-900">Inventory</h1>
             <p className="mt-0.5 text-sm text-slate-500">Manage your products and categories</p>
           </div>
-          {isRefreshing && !loading && (
+          {isRefreshing && !isInitialLoading && (
             <div className="flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-[10px] font-semibold text-brand-600 animate-pulse">
               <RefreshCcw size={10} className="animate-spin-slow" />
               Refreshing...

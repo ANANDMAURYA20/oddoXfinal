@@ -2,8 +2,20 @@ const prisma = require("../../config/db");
 const ApiError = require("../../utils/ApiError");
 
 const createTable = async (tenantId, data) => {
+  const existing = await prisma.table.findUnique({
+    where: { number_tenantId: { number: data.number, tenantId } },
+  });
+  if (existing) {
+    throw ApiError.badRequest(`Table #${data.number} already exists`);
+  }
+
   return prisma.table.create({
-    data: { ...data, tenantId },
+    data: {
+      number: data.number,
+      name: data.name || `Table ${data.number}`,
+      seats: data.seats || 4,
+      tenantId,
+    },
   });
 };
 
@@ -48,4 +60,25 @@ const deleteTable = async (tenantId, id) => {
   return prisma.table.delete({ where: { id } });
 };
 
-module.exports = { createTable, listTables, getTableById, updateTable, updateTableStatus, deleteTable };
+const bulkCreateTables = async (tenantId, count) => {
+  const lastTable = await prisma.table.findFirst({
+    where: { tenantId },
+    orderBy: { number: "desc" },
+  });
+
+  const startNum = (lastTable?.number || 0) + 1;
+  const tables = [];
+
+  for (let i = 0; i < count; i++) {
+    const num = startNum + i;
+    tables.push(
+      prisma.table.create({
+        data: { number: num, name: `Table ${num}`, tenantId },
+      })
+    );
+  }
+
+  return Promise.all(tables);
+};
+
+module.exports = { createTable, listTables, getTableById, updateTable, updateTableStatus, deleteTable, bulkCreateTables };

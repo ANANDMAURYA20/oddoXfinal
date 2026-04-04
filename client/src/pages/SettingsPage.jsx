@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Store, Percent, Receipt, DollarSign, CreditCard, QrCode, UtensilsCrossed } from 'lucide-react';
+import { Save, Store, Percent, Receipt, DollarSign, CreditCard, QrCode, UtensilsCrossed, MapPin, Smartphone, Shield } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../config/api';
 
@@ -13,6 +13,11 @@ export default function SettingsPage() {
     paymentMethods: [],
     upiId: '',
     totalTables: 0,
+    qrOrderingEnabled: false,
+    geofenceEnabled: false,
+    restaurantLat: '',
+    restaurantLng: '',
+    geofenceRadius: 100,
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -36,6 +41,11 @@ export default function SettingsPage() {
           paymentMethods: data.data.paymentMethods || [],
           upiId: data.data.upiId || '',
           totalTables: data.data.totalTables || 0,
+          qrOrderingEnabled: data.data.qrOrderingEnabled || false,
+          geofenceEnabled: data.data.geofenceEnabled || false,
+          restaurantLat: data.data.restaurantLat || '',
+          restaurantLng: data.data.restaurantLng || '',
+          geofenceRadius: data.data.geofenceRadius || 100,
         });
       }
     } catch (err) {
@@ -54,6 +64,9 @@ export default function SettingsPage() {
         ...form,
         taxRate: parseFloat(form.taxRate),
         totalTables: parseInt(form.totalTables) || 0,
+        restaurantLat: form.restaurantLat ? parseFloat(form.restaurantLat) : null,
+        restaurantLng: form.restaurantLng ? parseFloat(form.restaurantLng) : null,
+        geofenceRadius: parseInt(form.geofenceRadius) || 100,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -203,6 +216,140 @@ export default function SettingsPage() {
             onChange={(e) => setForm({ ...form, totalTables: e.target.value })}
             className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
           />
+        </div>
+
+        {/* QR Ordering */}
+        <div className="border-t border-[var(--color-border)] pt-6">
+          <h3 className="flex items-center gap-2 text-base font-semibold text-slate-800 mb-4">
+            <Smartphone size={18} className="text-orange-500" />
+            QR Code Ordering
+          </h3>
+
+          <div className="flex items-center justify-between p-4 rounded-xl bg-[var(--color-surface-raised)] border border-[var(--color-border)] mb-4">
+            <div>
+              <p className="text-sm font-medium text-slate-700">Enable QR Ordering</p>
+              <p className="text-xs text-slate-400 mt-0.5">Allow customers to order by scanning table QR codes</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, qrOrderingEnabled: !form.qrOrderingEnabled })}
+              className={`relative w-12 h-6 rounded-full transition-colors ${
+                form.qrOrderingEnabled ? 'bg-green-500' : 'bg-slate-300'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                  form.qrOrderingEnabled ? 'translate-x-6' : ''
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
+        {/* Geofencing */}
+        <div className="border-t border-[var(--color-border)] pt-6">
+          <h3 className="flex items-center gap-2 text-base font-semibold text-slate-800 mb-4">
+            <Shield size={18} className="text-blue-500" />
+            Geofencing Restriction
+          </h3>
+
+          <div className="flex items-center justify-between p-4 rounded-xl bg-[var(--color-surface-raised)] border border-[var(--color-border)] mb-4">
+            <div>
+              <p className="text-sm font-medium text-slate-700">Enable Geofencing</p>
+              <p className="text-xs text-slate-400 mt-0.5">Only allow orders from within restaurant area</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, geofenceEnabled: !form.geofenceEnabled })}
+              className={`relative w-12 h-6 rounded-full transition-colors ${
+                form.geofenceEnabled ? 'bg-green-500' : 'bg-slate-300'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                  form.geofenceEnabled ? 'translate-x-6' : ''
+                }`}
+              />
+            </button>
+          </div>
+
+          {form.geofenceEnabled && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="space-y-4"
+            >
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="flex items-center gap-2 mb-1.5 text-sm font-medium text-slate-700">
+                    <MapPin size={14} className="text-slate-400" />
+                    Latitude
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={form.restaurantLat}
+                    onChange={(e) => setForm({ ...form, restaurantLat: e.target.value })}
+                    placeholder="e.g., 28.6139"
+                    className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                  />
+                </div>
+                <div>
+                  <label className="flex items-center gap-2 mb-1.5 text-sm font-medium text-slate-700">
+                    <MapPin size={14} className="text-slate-400" />
+                    Longitude
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={form.restaurantLng}
+                    onChange={(e) => setForm({ ...form, restaurantLng: e.target.value })}
+                    placeholder="e.g., 77.2090"
+                    className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Allowed Radius (meters)
+                </label>
+                <select
+                  value={form.geofenceRadius}
+                  onChange={(e) => setForm({ ...form, geofenceRadius: e.target.value })}
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                >
+                  <option value={25}>25 meters</option>
+                  <option value={50}>50 meters</option>
+                  <option value={100}>100 meters</option>
+                  <option value={200}>200 meters</option>
+                  <option value={500}>500 meters</option>
+                </select>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                      (pos) => {
+                        setForm({
+                          ...form,
+                          restaurantLat: pos.coords.latitude.toFixed(6),
+                          restaurantLng: pos.coords.longitude.toFixed(6),
+                        });
+                      },
+                      () => alert('Could not get your location. Please enter coordinates manually.')
+                    );
+                  }
+                }}
+                className="flex items-center gap-2 text-sm text-brand-600 font-medium hover:text-brand-700"
+              >
+                <MapPin size={14} />
+                Use My Current Location
+              </button>
+            </motion.div>
+          )}
         </div>
 
         {/* Receipt Note */}

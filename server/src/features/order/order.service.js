@@ -1,6 +1,6 @@
 const prisma = require("../../config/db");
 const ApiError = require("../../utils/ApiError");
-const { emitToTenant, emitToKdsStation } = require("../../config/socket");
+const { emitToTenant, emitToKdsStation, emitToOrder } = require("../../config/socket");
 
 /**
  * Generate a unique order number: ORD-YYYYMMDD-XXXXX
@@ -213,6 +213,13 @@ const updateOrderStatus = async (tenantId, id, { status }) => {
 
   // Emit event to update KDS screens
   emitToTenant(tenantId, "order:updated", updatedOrder);
+
+  // Emit to customer tracking room (for QR orders)
+  emitToOrder(id, "order:status-changed", {
+    orderId: id,
+    status: updatedOrder.status,
+    updatedAt: updatedOrder.updatedAt,
+  });
 
   // Also emit to specific KDS station rooms so station-filtered displays update in real-time
   try {

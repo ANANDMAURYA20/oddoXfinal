@@ -12,6 +12,7 @@ import {
   Menu,
   X,
   Tag,
+  QrCode,
 } from 'lucide-react';
 import useAuthStore from '../../stores/useAuthStore';
 
@@ -23,6 +24,7 @@ const navigation = [
   { name: 'Inventory', href: '/inventory', icon: Tag },
   { name: 'Reports', href: '/reports', icon: BarChart3 },
   { name: 'Staff', href: '/staff', icon: Users },
+  { name: 'Tables & QR', href: '/tables', icon: QrCode },
   { name: 'KDS Settings', href: '/kds-settings', icon: ChefHat },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];

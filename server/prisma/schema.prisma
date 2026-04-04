@@ -76,6 +76,8 @@ model Tenant {
   settings         Settings?
   kdsStations      KdsStation[]
   registerSessions RegisterSession[]
+  tables           Table[]
+  customerSessions CustomerSession[]
 }
 
 model User {
@@ -98,6 +100,68 @@ model User {
   registerSessions RegisterSession[] @relation("registerSessions")
 
   @@index([tenantId])
+}
+
+// ─────────────────────────────────────────────
+// Restaurant Tables & QR Ordering
+// ─────────────────────────────────────────────
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+}
+
+model Table {
+  id          String      @id @default(uuid())
+  number      Int
+  name        String?     // e.g., "Window Seat 1", "Patio 3"
+  seats       Int         @default(4)
+  status      TableStatus @default(AVAILABLE)
+  qrCode      String?     // Stored QR data URL
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  orders           Order[]
+  customerSessions CustomerSession[]
+
+  @@unique([number, tenantId])
+  @@index([tenantId])
+}
+
+model CustomerSession {
+  id          String   @id @default(uuid())
+  sessionToken String  @unique @default(uuid())
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+
+  tableId  String
+  table    Table  @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  orders Order[] @relation("sessionOrders")
+
+  @@index([tenantId])
+  @@index([tableId])
+}
+
+model ProductAddon {
+  id        String  @id @default(uuid())
+  name      String  // e.g., "Extra Cheese", "Spicy Sauce"
+  price     Float   @default(0)
+  isActive  Boolean @default(true)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
 }
 
 // ─────────────────────────────────────────────
@@ -139,6 +203,10 @@ model Product {
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   orderItems OrderItem[]
+  addons     ProductAddon[]
+
+  // QR ordering display
+  vegType    String?  // "veg", "non-veg", "egg"
 
   @@index([tenantId])
   @@index([barcode])
@@ -177,8 +245,8 @@ model Order {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  cashierId String
-  cashier   User   @relation(fields: [cashierId], references: [id])
+  cashierId String?
+  cashier   User?  @relation(fields: [cashierId], references: [id])
 
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
@@ -186,16 +254,28 @@ model Order {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  // QR ordering fields
+  tableId   String?
+  table     Table?  @relation(fields: [tableId], references: [id], onDelete: SetNull)
+
+  sessionId String?
+  session   CustomerSession? @relation("sessionOrders", fields: [sessionId], references: [id], onDelete: SetNull)
+
+  orderSource String  @default("POS") // "POS" | "QR"
+
   items OrderItem[]
 
   @@index([tenantId])
   @@index([createdAt])
+  @@index([tableId])
 }
 
 model OrderItem {
   id       String @id @default(uuid())
   quantity Int
   price    Float
+  addons   Json?  // Store selected addons as JSON: [{name, price}]
+  note     String?
 
   orderId String
   order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -241,6 +321,13 @@ model Settings {
   upiId          String   @default("")
   totalTables    Int      @default(0)
   onboardingCompleted Boolean @default(false)
+
+  // QR Ordering settings
+  qrOrderingEnabled Boolean @default(false)
+  restaurantLat     Float?
+  restaurantLng     Float?
+  geofenceRadius    Int     @default(100) // in meters
+  geofenceEnabled   Boolean @default(false)
 
   tenantId String @unique
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
