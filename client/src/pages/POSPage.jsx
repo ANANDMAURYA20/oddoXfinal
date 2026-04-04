@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Minus, Trash2, X, Delete, CreditCard, Banknote, Smartphone, Check, ArrowLeft, LogOut } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, X, Delete, CreditCard, Banknote, Smartphone, Check, ArrowLeft, LogOut, UtensilsCrossed, ShoppingBag, PauseCircle, ChefHat, Grid3X3 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../config/api';
@@ -13,6 +13,8 @@ export default function POSPage() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [search, setSearch] = useState('');
   const [showCheckout, setShowCheckout] = useState(false);
+  const [showTableView, setShowTableView] = useState(false);
+  const [totalTables, setTotalTables] = useState(0);
   const [numpadTarget, setNumpadTarget] = useState(null); // productId or null
   const [numpadValue, setNumpadValue] = useState('');
 
@@ -54,8 +56,29 @@ export default function POSPage() {
       if (data.data?.taxRate) {
         cart.setTaxRate(data.data.taxRate);
       }
+      if (data.data?.totalTables) {
+        setTotalTables(data.data.totalTables);
+      }
     } catch (err) {
       console.error('Failed to fetch settings:', err);
+    }
+  };
+
+  const handleSendKot = async () => {
+    if (!cart.activeTable || cart.items.length === 0) return;
+    const kotItems = cart.sendKot();
+    // Emit KOT to KDS via creating a KOT-style event (reuses order:new socket event)
+    // The order isn't placed yet — just notify kitchen
+    try {
+      const socket = (await import('../config/socket')).getSocket();
+      if (socket) {
+        socket.emit('kot:send', {
+          tableNumber: cart.activeTable,
+          items: kotItems.map((i) => ({ name: i.name, quantity: i.quantity, productId: i.productId, categoryId: i.categoryId })),
+        });
+      }
+    } catch (err) {
+      console.error('KOT emit error:', err);
     }
   };
 
@@ -202,8 +225,72 @@ export default function POSPage() {
       <div className="flex w-[380px] flex-col border-l border-[var(--color-border)] bg-white shrink-0">
         {/* Cart Header */}
         <div className="border-b border-[var(--color-border)] px-5 py-4">
-          <h2 className="font-display text-lg font-bold text-slate-900">Current Order</h2>
-          <p className="text-xs text-slate-400">{cart.items.length} item(s)</p>
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h2 className="font-display text-lg font-bold text-slate-900">Current Order</h2>
+              <p className="text-xs text-slate-400">{cart.items.length} item(s)</p>
+            </div>
+            {/* Dine-in / Takeaway toggle */}
+            <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
+              <button
+                onClick={() => cart.setOrderType('dine-in')}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                  cart.orderType === 'dine-in'
+                    ? 'bg-white text-orange-600 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <UtensilsCrossed size={13} />
+                Dine-in
+              </button>
+              <button
+                onClick={() => { cart.setOrderType('takeaway'); setShowTableView(false); }}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                  cart.orderType === 'takeaway'
+                    ? 'bg-white text-brand-600 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <ShoppingBag size={13} />
+                Takeaway
+              </button>
+            </div>
+          </div>
+
+          {/* Active table indicator + table select button for dine-in */}
+          {cart.orderType === 'dine-in' && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowTableView(true)}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${
+                  cart.activeTable
+                    ? 'border-orange-300 bg-orange-50 text-orange-700'
+                    : 'border-slate-300 bg-slate-50 text-slate-600 animate-pulse'
+                }`}
+              >
+                <Grid3X3 size={14} />
+                {cart.activeTable ? `Table ${cart.activeTable}` : 'Select Table'}
+              </button>
+              {cart.activeTable && cart.items.length > 0 && (
+                <>
+                  <button
+                    onClick={handleSendKot}
+                    className="flex items-center gap-1.5 rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-600 transition-colors"
+                  >
+                    <ChefHat size={13} />
+                    KOT
+                  </button>
+                  <button
+                    onClick={() => cart.holdTable(cart.activeTable)}
+                    className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-colors"
+                  >
+                    <PauseCircle size={13} />
+                    Hold
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Cart Items */}
@@ -329,14 +416,35 @@ export default function POSPage() {
             <span>₹{cart.getTotal().toFixed(2)}</span>
           </div>
           <button
-            onClick={() => setShowCheckout(true)}
+            onClick={() => {
+              if (cart.orderType === 'dine-in' && !cart.activeTable) {
+                setShowTableView(true);
+              } else {
+                setShowCheckout(true);
+              }
+            }}
             disabled={cart.items.length === 0}
             className="mt-2 w-full rounded-xl bg-brand-600 py-3.5 text-sm font-semibold text-white shadow-lg shadow-brand-200 transition-all hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            Proceed to Checkout
+            {cart.orderType === 'dine-in' && !cart.activeTable ? 'Select Table First' : 'Proceed to Checkout'}
           </button>
         </div>
       </div>
+
+      {/* Table View Modal */}
+      <AnimatePresence>
+        {showTableView && (
+          <TableViewModal
+            totalTables={totalTables}
+            cart={cart}
+            onSelectTable={(num) => {
+              cart.selectTable(num);
+              setShowTableView(false);
+            }}
+            onClose={() => setShowTableView(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Checkout Modal */}
       <AnimatePresence>
@@ -358,6 +466,105 @@ function ShoppingCartIcon() {
       <circle cx="8" cy="21" r="1" /><circle cx="19" cy="21" r="1" />
       <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
     </svg>
+  );
+}
+
+/* ────── Table View Modal ────── */
+function TableViewModal({ totalTables, cart, onSelectTable, onClose }) {
+  const tables = Array.from({ length: totalTables || 10 }, (_, i) => i + 1);
+
+  const STATUS_STYLES = {
+    free: 'border-slate-200 bg-white text-slate-600 hover:border-brand-300 hover:bg-brand-50',
+    active: 'border-brand-500 bg-brand-50 text-brand-700 ring-2 ring-brand-200',
+    occupied: 'border-amber-400 bg-amber-50 text-amber-700',
+    'kot-sent': 'border-orange-400 bg-orange-50 text-orange-700',
+  };
+
+  const STATUS_LABELS = {
+    free: 'Free',
+    active: 'Active',
+    occupied: 'Held',
+    'kot-sent': 'KOT Sent',
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="w-full max-w-2xl rounded-2xl border border-[var(--color-border)] bg-white p-6 shadow-2xl max-h-[85vh] overflow-hidden flex flex-col"
+      >
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h3 className="font-display text-lg font-bold text-slate-900">Select Table</h3>
+            <p className="text-xs text-slate-500 mt-0.5">Tap a table to assign this order</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Legend */}
+        <div className="flex gap-4 mb-4 flex-wrap">
+          {Object.entries(STATUS_LABELS).map(([key, label]) => (
+            <div key={key} className="flex items-center gap-1.5">
+              <div className={`h-3 w-3 rounded-full ${
+                key === 'free' ? 'bg-slate-200' :
+                key === 'active' ? 'bg-brand-500' :
+                key === 'occupied' ? 'bg-amber-400' :
+                'bg-orange-400'
+              }`} />
+              <span className="text-xs text-slate-500">{label}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Table Grid */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="grid grid-cols-4 sm:grid-cols-5 gap-3">
+            {tables.map((num) => {
+              const status = cart.getTableStatus(num);
+              const held = cart.heldTables[num];
+              return (
+                <motion.button
+                  key={num}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => onSelectTable(num)}
+                  className={`relative flex flex-col items-center justify-center rounded-xl border-2 p-4 transition-all ${STATUS_STYLES[status]}`}
+                >
+                  <UtensilsCrossed size={20} className="mb-1.5" />
+                  <span className="text-sm font-bold">T-{num}</span>
+                  <span className={`text-[10px] font-medium mt-0.5 ${
+                    status === 'free' ? 'text-slate-400' : ''
+                  }`}>
+                    {STATUS_LABELS[status]}
+                  </span>
+                  {held && (
+                    <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white px-1">
+                      {held.items.length}
+                    </span>
+                  )}
+                </motion.button>
+              );
+            })}
+          </div>
+        </div>
+
+        {totalTables === 0 && (
+          <div className="text-center py-10 text-slate-400">
+            <Grid3X3 size={40} strokeWidth={1.5} className="mx-auto mb-2" />
+            <p className="text-sm">No tables configured</p>
+            <p className="text-xs mt-1">Go to Settings to set your total number of tables</p>
+          </div>
+        )}
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -415,6 +622,9 @@ function CheckoutModal({ onClose, cart }) {
         })),
         paymentMethod: method,
         discount: cart.discount,
+        note: cart.orderType === 'dine-in' && cart.activeTable
+          ? `Dine-in | Table ${cart.activeTable}`
+          : cart.orderType === 'takeaway' ? 'Takeaway' : undefined,
       };
       const { data } = await api.post('/orders', payload);
       setOrderNumber(data.data.orderNumber);

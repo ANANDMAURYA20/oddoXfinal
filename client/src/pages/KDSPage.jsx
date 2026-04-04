@@ -27,6 +27,7 @@ const ACTION_LABELS = {
 
 export default function KDSPage() {
   const [orders, setOrders] = useState([]);
+  const [kotTickets, setKotTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [station, setStation] = useState(null);
   const [stations, setStations] = useState([]);
@@ -54,9 +55,19 @@ export default function KDSPage() {
         );
       });
 
+      // Listen for KOT tickets (pre-order kitchen notifications)
+      socket.on('kot:new', (kot) => {
+        setKotTickets((prev) => [kot, ...prev]);
+        // Auto-dismiss KOT after 30 seconds
+        setTimeout(() => {
+          setKotTickets((prev) => prev.filter((k) => k.timestamp !== kot.timestamp));
+        }, 30000);
+      });
+
       return () => {
         socket.off('order:new');
         socket.off('order:updated');
+        socket.off('kot:new');
       };
     }
   }, []);
@@ -248,6 +259,33 @@ export default function KDSPage() {
           )}
         </div>
       </div>
+
+      {/* KOT Notifications */}
+      <AnimatePresence>
+        {kotTickets.length > 0 && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="border-b border-orange-200 bg-orange-50 px-6 py-2 overflow-hidden"
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <ChefHat size={16} className="text-orange-600" />
+              <span className="text-xs font-bold text-orange-700 uppercase tracking-wide">Incoming KOT</span>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {kotTickets.map((kot, i) => (
+                <div key={kot.timestamp + i} className="shrink-0 rounded-lg border border-orange-300 bg-white px-3 py-2 min-w-[160px]">
+                  <p className="text-xs font-bold text-orange-800 mb-1">Table {kot.tableNumber}</p>
+                  {kot.items?.map((item, j) => (
+                    <p key={j} className="text-xs text-slate-600">{item.name} x{item.quantity}</p>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Columns */}
       <div className="flex-1 grid grid-cols-4 gap-0 overflow-hidden">
