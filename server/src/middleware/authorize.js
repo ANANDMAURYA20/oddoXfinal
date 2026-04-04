@@ -12,10 +12,8 @@ const authorize = (...allowedRoles) => {
       throw ApiError.unauthorized("Authentication required");
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
-      throw ApiError.forbidden(
-        `Role '${req.user.role}' is not authorized to access this resource`
-      );
+    if (req.user.role === "SUPER_ADMIN" || allowedRoles.includes(req.user.role)) {
+      return next();
     }
 
     next();
