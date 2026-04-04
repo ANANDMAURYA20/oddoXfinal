@@ -14,13 +14,20 @@ export default function InventoryPage() {
   const [editing, setEditing] = useState(null);
   const queryClient = useQueryClient();
 
+  // Map frontend status filter to backend isActive param
+  const isActiveParam = useMemo(() => {
+    if (statusFilter === 'active') return 'true';
+    if (statusFilter === 'inactive') return 'false';
+    return 'all';
+  }, [statusFilter]);
+
   const { 
     data: productData, 
     isLoading: loadingProducts,
     isFetching: fetchingProducts 
   } = useProducts({ 
-    status: statusFilter,
-    search: search // Note: in a high-traffic app, we might want to debounce this
+    isActive: isActiveParam, // Backend expects 'isActive'
+    search: search
   });
 
   const { 
@@ -55,12 +62,10 @@ export default function InventoryPage() {
     try {
       await api.delete(`/categories/${id}`);
       queryClient.invalidateQueries({ queryKey: ['inventory', 'categories'] });
-      // Also invalidate products since they might refer to this category
       queryClient.invalidateQueries({ queryKey: ['inventory', 'products'] });
     } catch (err) { alert(err.response?.data?.message || 'Failed'); }
   };
 
-  // The search is handled by useProducts queryKey, so we don't need additional local filtering here
   const displayProducts = products;
 
   return (
@@ -294,7 +299,6 @@ export default function InventoryPage() {
             onSaved={() => {
               setShowModal(false);
               setEditing(null);
-              // Invalidate cache instead of manual fetch
               queryClient.invalidateQueries({ queryKey: ['inventory'] });
             }}
           />
