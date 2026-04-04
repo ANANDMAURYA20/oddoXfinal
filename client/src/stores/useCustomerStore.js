@@ -3,9 +3,7 @@ import { create } from 'zustand';
 const useCustomerStore = create((set, get) => ({
   // Session & restaurant info
   tenantId: null,
-  tableId: null,
   tableNumber: null,
-  tableName: null,
   sessionToken: null,
   restaurantName: '',
   currency: 'INR',
@@ -26,9 +24,7 @@ const useCustomerStore = create((set, get) => ({
   setSession: (data) =>
     set({
       tenantId: data.tenantId,
-      tableId: data.tableId,
       tableNumber: data.tableNumber,
-      tableName: data.tableName,
       sessionToken: data.sessionToken,
       restaurantName: data.restaurantName,
       currency: data.currency || 'INR',
@@ -116,9 +112,7 @@ const useCustomerStore = create((set, get) => ({
   resetSession: () =>
     set({
       tenantId: null,
-      tableId: null,
       tableNumber: null,
-      tableName: null,
       sessionToken: null,
       restaurantName: '',
       currency: 'INR',

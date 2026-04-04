@@ -9,7 +9,7 @@ import useThemeStore from '../../stores/useThemeStore';
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export default function CustomerCartPage() {
-  const { tenantId, tableId } = useParams();
+  const { tenantId, tableNumber } = useParams();
   const navigate = useNavigate();
   const store = useCustomerStore();
   const { mode } = useThemeStore();
@@ -30,7 +30,7 @@ export default function CustomerCartPage() {
 
     try {
       const payload = {
-        tableId,
+        tableNumber,
         sessionToken: store.sessionToken,
         items: store.items.map((item) => ({
           productId: item.productId,
@@ -47,7 +47,7 @@ export default function CustomerCartPage() {
       store.addToHistory(order);
       store.clearCart();
 
-      navigate(`/order/${tenantId}/${tableId}/confirmation/${order.id}`);
+      navigate(`/order/${tenantId}/${tableNumber}/confirmation/${order.id}`);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to place order. Please try again.');
     } finally {
@@ -67,7 +67,7 @@ export default function CustomerCartPage() {
           <h2 className="text-xl font-bold mb-2">Your cart is empty</h2>
           <p className={`text-sm mb-6 ${dark ? 'text-gray-400' : 'text-gray-500'}`}>Add some delicious items from the menu</p>
           <button
-            onClick={() => navigate(`/order/${tenantId}/${tableId}/menu`)}
+            onClick={() => navigate(`/order/${tenantId}/${tableNumber}/menu`)}
             className="px-6 py-3 bg-orange-500 text-white rounded-xl font-semibold"
           >
             Browse Menu
@@ -168,7 +168,7 @@ export default function CustomerCartPage() {
 
         {/* Add more items */}
         <button
-          onClick={() => navigate(`/order/${tenantId}/${tableId}/menu`)}
+          onClick={() => navigate(`/order/${tenantId}/${tableNumber}/menu`)}
           className={`w-full py-3 rounded-xl border-2 border-dashed text-sm font-medium ${
             dark ? 'border-gray-700 text-gray-400' : 'border-gray-300 text-gray-500'
           }`}

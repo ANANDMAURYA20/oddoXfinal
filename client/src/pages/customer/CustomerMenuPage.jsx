@@ -9,7 +9,7 @@ import useThemeStore from '../../stores/useThemeStore';
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export default function CustomerMenuPage() {
-  const { tenantId, tableId } = useParams();
+  const { tenantId, tableNumber } = useParams();
   const navigate = useNavigate();
   const store = useCustomerStore();
   const { mode, toggleMode } = useThemeStore();
@@ -22,7 +22,7 @@ export default function CustomerMenuPage() {
 
   useEffect(() => {
     if (!store.sessionToken) {
-      navigate(`/order/${tenantId}/${tableId}`);
+      navigate(`/order/${tenantId}/${tableNumber}`);
       return;
     }
     fetchMenu();
@@ -67,7 +67,7 @@ export default function CustomerMenuPage() {
 
   const quickAdd = (product) => {
     if (product.addons?.length > 0) {
-      navigate(`/order/${tenantId}/${tableId}/product/${product.id}`);
+      navigate(`/order/${tenantId}/${tableNumber}/product/${product.id}`);
     } else {
       store.addItem(product, 1, [], '');
     }
@@ -102,7 +102,7 @@ export default function CustomerMenuPage() {
       {/* Header */}
       <div className={`sticky top-0 z-30 ${dark ? 'bg-gray-900/95' : 'bg-white/95'} backdrop-blur-md border-b ${dark ? 'border-gray-800' : 'border-gray-200'}`}>
         <div className="flex items-center gap-3 px-4 py-3">
-          <button onClick={() => navigate(`/order/${tenantId}/${tableId}`)} className="p-1">
+          <button onClick={() => navigate(`/order/${tenantId}/${tableNumber}`)} className="p-1">
             <ChevronLeft size={24} />
           </button>
           <div className="flex-1">
@@ -181,7 +181,7 @@ export default function CustomerMenuPage() {
                     {/* Product image */}
                     <div
                       className="relative h-28 bg-gradient-to-br from-orange-100 to-amber-50 cursor-pointer"
-                      onClick={() => navigate(`/order/${tenantId}/${tableId}/product/${product.id}`)}
+                      onClick={() => navigate(`/order/${tenantId}/${tableNumber}/product/${product.id}`)}
                     >
                       {product.image ? (
                         <img
@@ -266,7 +266,7 @@ export default function CustomerMenuPage() {
             className="fixed bottom-0 left-0 right-0 p-4 z-40"
           >
             <button
-              onClick={() => navigate(`/order/${tenantId}/${tableId}/cart`)}
+              onClick={() => navigate(`/order/${tenantId}/${tableNumber}/cart`)}
               className="w-full flex items-center justify-between px-6 py-4 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-2xl shadow-xl"
             >
               <div className="flex items-center gap-3">

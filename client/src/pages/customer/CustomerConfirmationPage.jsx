@@ -9,7 +9,7 @@ import useThemeStore from '../../stores/useThemeStore';
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export default function CustomerConfirmationPage() {
-  const { tenantId, tableId, orderId } = useParams();
+  const { tenantId, tableNumber, orderId } = useParams();
   const navigate = useNavigate();
   const store = useCustomerStore();
   const { mode } = useThemeStore();
@@ -100,7 +100,7 @@ export default function CustomerConfirmationPage() {
           className="w-full max-w-sm mt-8 space-y-3"
         >
           <button
-            onClick={() => navigate(`/order/${tenantId}/${tableId}/tracking/${orderId}`)}
+            onClick={() => navigate(`/order/${tenantId}/${tableNumber}/tracking/${orderId}`)}
             className="w-full flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-2xl font-bold shadow-lg"
           >
             Track My Order
@@ -108,7 +108,7 @@ export default function CustomerConfirmationPage() {
           </button>
 
           <button
-            onClick={() => navigate(`/order/${tenantId}/${tableId}/menu`)}
+            onClick={() => navigate(`/order/${tenantId}/${tableNumber}/menu`)}
             className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-semibold border-2 ${
               dark ? 'border-gray-700 text-gray-300' : 'border-gray-300 text-gray-600'
             }`}

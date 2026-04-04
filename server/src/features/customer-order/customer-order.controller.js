@@ -8,8 +8,8 @@ const getRestaurantInfo = asyncHandler(async (req, res) => {
 });
 
 const initSession = asyncHandler(async (req, res) => {
-  const { tenantId, tableId } = req.params;
-  const result = await service.initSession(tenantId, tableId);
+  const { tenantId, tableNumber } = req.params;
+  const result = await service.initSession(tenantId, tableNumber);
   res.status(200).json(new ApiResponse(200, result, "Session initialized"));
 });
 

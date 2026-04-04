@@ -44,7 +44,7 @@ const STATUS_CONFIG = {
 };
 
 export default function CustomerTrackingPage() {
-  const { tenantId, tableId, orderId } = useParams();
+  const { tenantId, tableNumber, orderId } = useParams();
   const navigate = useNavigate();
   const store = useCustomerStore();
   const { mode } = useThemeStore();
@@ -134,7 +134,7 @@ export default function CustomerTrackingPage() {
       {/* Header */}
       <div className={`sticky top-0 z-30 ${dark ? 'bg-gray-900/95' : 'bg-white/95'} backdrop-blur-md border-b ${dark ? 'border-gray-800' : 'border-gray-200'}`}>
         <div className="flex items-center gap-3 px-4 py-3">
-          <button onClick={() => navigate(`/order/${tenantId}/${tableId}/menu`)} className="p-1">
+          <button onClick={() => navigate(`/order/${tenantId}/${tableNumber}/menu`)} className="p-1">
             <ChevronLeft size={24} />
           </button>
           <div>
@@ -240,7 +240,7 @@ export default function CustomerTrackingPage() {
 
         {/* Order more */}
         <button
-          onClick={() => navigate(`/order/${tenantId}/${tableId}/menu`)}
+          onClick={() => navigate(`/order/${tenantId}/${tableNumber}/menu`)}
           className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-semibold border-2 ${
             dark ? 'border-gray-700 text-gray-300' : 'border-gray-300 text-gray-600'
           }`}

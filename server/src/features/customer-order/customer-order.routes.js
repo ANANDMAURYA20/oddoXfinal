@@ -6,7 +6,7 @@ const router = Router();
 
 // All routes are PUBLIC (no auth required) — these are customer-facing endpoints
 router.get("/:tenantId/info", controller.getRestaurantInfo);
-router.post("/:tenantId/table/:tableId/session", controller.initSession);
+router.post("/:tenantId/table/:tableNumber/session", controller.initSession);
 router.get("/:tenantId/menu", controller.getMenu);
 router.get("/:tenantId/product/:productId", controller.getProduct);
 router.post("/:tenantId/order", controller.placeOrder);

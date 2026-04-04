@@ -31,6 +31,7 @@ const getRestaurantInfo = async (tenantId) => {
       currency: true,
       taxRate: true,
       taxLabel: true,
+      totalTables: true,
       qrOrderingEnabled: true,
       geofenceEnabled: true,
       restaurantLat: true,
@@ -49,6 +50,7 @@ const getRestaurantInfo = async (tenantId) => {
     currency: settings?.currency || "INR",
     taxRate: settings?.taxRate || 0,
     taxLabel: settings?.taxLabel || "GST",
+    totalTables: settings?.totalTables || 0,
     geofence: settings?.geofenceEnabled
       ? {
           enabled: true,
@@ -61,21 +63,31 @@ const getRestaurantInfo = async (tenantId) => {
 };
 
 /**
- * Validate table and create/get a customer session.
+ * Validate table number against totalTables setting and create/get a customer session.
  */
-const initSession = async (tenantId, tableId) => {
-  const table = await prisma.table.findFirst({
-    where: { id: tableId, tenantId, isActive: true },
+const initSession = async (tenantId, tableNumber) => {
+  const tableNum = parseInt(tableNumber);
+
+  // Validate table number against POS totalTables setting
+  const settings = await prisma.settings.findUnique({
+    where: { tenantId },
+    select: { totalTables: true, qrOrderingEnabled: true },
   });
 
-  if (!table) {
-    throw ApiError.notFound("Table not found or inactive");
+  if (!settings?.qrOrderingEnabled) {
+    throw ApiError.badRequest("Online ordering is currently disabled");
+  }
+
+  if (!tableNum || tableNum < 1 || tableNum > (settings.totalTables || 0)) {
+    throw ApiError.badRequest(
+      `Invalid table number. This restaurant has tables 1 to ${settings.totalTables}.`
+    );
   }
 
   // Check for existing active session on this table
   const existingSession = await prisma.customerSession.findFirst({
     where: {
-      tableId,
+      tableNumber: tableNum,
       tenantId,
       isActive: true,
       expiresAt: { gt: new Date() },
@@ -83,22 +95,16 @@ const initSession = async (tenantId, tableId) => {
   });
 
   if (existingSession) {
-    return { session: existingSession, table };
+    return { session: existingSession, tableNumber: tableNum };
   }
 
   // Create new session (expires in 3 hours)
   const expiresAt = new Date(Date.now() + 3 * 60 * 60 * 1000);
   const session = await prisma.customerSession.create({
-    data: { tableId, tenantId, expiresAt },
+    data: { tableNumber: tableNum, tenantId, expiresAt },
   });
 
-  // Mark table as occupied
-  await prisma.table.update({
-    where: { id: tableId },
-    data: { status: "OCCUPIED" },
-  });
-
-  return { session, table };
+  return { session, tableNumber: tableNum };
 };
 
 /**
@@ -159,14 +165,15 @@ const getProduct = async (tenantId, productId) => {
  * Place an order from QR (customer-facing, no auth).
  */
 const placeOrder = async (tenantId, data) => {
-  const { items, tableId, sessionToken, note } = data;
+  const { items, tableNumber, sessionToken, note } = data;
+  const tableNum = parseInt(tableNumber);
 
   // Validate session
   const session = await prisma.customerSession.findFirst({
     where: {
       sessionToken,
       tenantId,
-      tableId,
+      tableNumber: tableNum,
       isActive: true,
       expiresAt: { gt: new Date() },
     },
@@ -180,7 +187,7 @@ const placeOrder = async (tenantId, data) => {
   const recentOrder = await prisma.order.findFirst({
     where: {
       sessionId: session.id,
-      tableId,
+      tableNumber: tableNum,
       createdAt: { gt: new Date(Date.now() - 10000) },
     },
   });
@@ -215,7 +222,6 @@ const placeOrder = async (tenantId, data) => {
       }
 
       let itemPrice = product.price;
-      // Add addon prices
       const addonTotal = (item.addons || []).reduce((sum, a) => sum + (a.price || 0), 0);
       itemPrice += addonTotal;
 
@@ -243,7 +249,7 @@ const placeOrder = async (tenantId, data) => {
       });
     }
 
-    // Create order
+    // Create order — uses same tableNumber as POS dine-in
     return tx.order.create({
       data: {
         orderNumber: generateOrderNumber(),
@@ -251,12 +257,12 @@ const placeOrder = async (tenantId, data) => {
         discount: 0,
         tax,
         totalAmount,
-        paymentMethod: "CASH", // Will be paid at counter
+        paymentMethod: "CASH",
         status: "PENDING",
         paymentStatus: "PENDING",
         note: note || null,
         tenantId,
-        tableId,
+        tableNumber: tableNum,
         sessionId: session.id,
         orderSource: "QR",
         items: { create: orderItems },
@@ -265,12 +271,14 @@ const placeOrder = async (tenantId, data) => {
         items: {
           include: { product: { select: { id: true, name: true, categoryId: true } } },
         },
-        table: { select: { id: true, number: true, name: true } },
       },
     });
   });
 
-  // Emit to tenant (KDS + admin)
+  // Attach tableNumber for KDS/POS display
+  order.tableNumber = tableNum;
+
+  // Emit to tenant (KDS + admin + POS)
   emitToTenant(tenantId, "order:new", order);
 
   // Emit to KDS stations
@@ -311,9 +319,9 @@ const trackOrder = async (tenantId, orderId) => {
       totalAmount: true,
       subtotal: true,
       tax: true,
+      tableNumber: true,
       createdAt: true,
       updatedAt: true,
-      table: { select: { number: true, name: true } },
       items: {
         select: {
           quantity: true,

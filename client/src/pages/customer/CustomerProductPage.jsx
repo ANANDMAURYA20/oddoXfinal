@@ -9,7 +9,7 @@ import useThemeStore from '../../stores/useThemeStore';
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export default function CustomerProductPage() {
-  const { tenantId, tableId, productId } = useParams();
+  const { tenantId, tableNumber, productId } = useParams();
   const navigate = useNavigate();
   const store = useCustomerStore();
   const { mode } = useThemeStore();
@@ -23,7 +23,7 @@ export default function CustomerProductPage() {
 
   useEffect(() => {
     if (!store.sessionToken) {
-      navigate(`/order/${tenantId}/${tableId}`);
+      navigate(`/order/${tenantId}/${tableNumber}`);
       return;
     }
     fetchProduct();
@@ -55,7 +55,7 @@ export default function CustomerProductPage() {
   const handleAddToCart = () => {
     if (!product) return;
     store.addItem(product, quantity, selectedAddons, note);
-    navigate(`/order/${tenantId}/${tableId}/menu`);
+    navigate(`/order/${tenantId}/${tableNumber}/menu`);
   };
 
   const sym = store.currency === 'INR' ? '₹' : store.currency;

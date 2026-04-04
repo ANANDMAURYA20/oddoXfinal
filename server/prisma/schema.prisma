@@ -76,7 +76,6 @@ model Tenant {
   settings         Settings?
   kdsStations      KdsStation[]
   registerSessions RegisterSession[]
-  tables           Table[]
   customerSessions CustomerSession[]
 }
 
@@ -103,45 +102,16 @@ model User {
 }
 
 // ─────────────────────────────────────────────
-// Restaurant Tables & QR Ordering
+// QR Ordering Sessions
 // ─────────────────────────────────────────────
 
-enum TableStatus {
-  AVAILABLE
-  OCCUPIED
-  RESERVED
-}
-
-model Table {
-  id          String      @id @default(uuid())
-  number      Int
-  name        String?     // e.g., "Window Seat 1", "Patio 3"
-  seats       Int         @default(4)
-  status      TableStatus @default(AVAILABLE)
-  qrCode      String?     // Stored QR data URL
-  isActive    Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-
-  tenantId String
-  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  orders           Order[]
-  customerSessions CustomerSession[]
-
-  @@unique([number, tenantId])
-  @@index([tenantId])
-}
-
 model CustomerSession {
-  id          String   @id @default(uuid())
-  sessionToken String  @unique @default(uuid())
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  expiresAt   DateTime
-
-  tableId  String
-  table    Table  @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  id           String   @id @default(uuid())
+  sessionToken String   @unique @default(uuid())
+  tableNumber  Int      // Matches POS dine-in table number (1..totalTables)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -149,7 +119,7 @@ model CustomerSession {
   orders Order[] @relation("sessionOrders")
 
   @@index([tenantId])
-  @@index([tableId])
+  @@index([tableNumber, tenantId])
 }
 
 model ProductAddon {
@@ -254,9 +224,8 @@ model Order {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  // QR ordering fields
-  tableId   String?
-  table     Table?  @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  // QR ordering / dine-in fields
+  tableNumber Int?    // Matches POS dine-in table number
 
   sessionId String?
   session   CustomerSession? @relation("sessionOrders", fields: [sessionId], references: [id], onDelete: SetNull)
@@ -267,7 +236,7 @@ model Order {
 
   @@index([tenantId])
   @@index([createdAt])
-  @@index([tableId])
+  @@index([tableNumber])
 }
 
 model OrderItem {

@@ -51,12 +51,12 @@ export default function App() {
           />
 
           {/* ── Customer QR Ordering (Public, no auth) ── */}
-          <Route path="/order/:tenantId/:tableId" element={<CustomerLandingPage />} />
-          <Route path="/order/:tenantId/:tableId/menu" element={<CustomerMenuPage />} />
-          <Route path="/order/:tenantId/:tableId/product/:productId" element={<CustomerProductPage />} />
-          <Route path="/order/:tenantId/:tableId/cart" element={<CustomerCartPage />} />
-          <Route path="/order/:tenantId/:tableId/confirmation/:orderId" element={<CustomerConfirmationPage />} />
-          <Route path="/order/:tenantId/:tableId/tracking/:orderId" element={<CustomerTrackingPage />} />
+          <Route path="/order/:tenantId/:tableNumber" element={<CustomerLandingPage />} />
+          <Route path="/order/:tenantId/:tableNumber/menu" element={<CustomerMenuPage />} />
+          <Route path="/order/:tenantId/:tableNumber/product/:productId" element={<CustomerProductPage />} />
+          <Route path="/order/:tenantId/:tableNumber/cart" element={<CustomerCartPage />} />
+          <Route path="/order/:tenantId/:tableNumber/confirmation/:orderId" element={<CustomerConfirmationPage />} />
+          <Route path="/order/:tenantId/:tableNumber/tracking/:orderId" element={<CustomerTrackingPage />} />
 
           {/* Protected — Admin Dashboard (Super Admin only, full-screen) */}
           <Route

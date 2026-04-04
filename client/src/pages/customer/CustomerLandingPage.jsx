@@ -9,7 +9,7 @@ import useThemeStore from '../../stores/useThemeStore';
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export default function CustomerLandingPage() {
-  const { tenantId, tableId } = useParams();
+  const { tenantId, tableNumber } = useParams();
   const navigate = useNavigate();
   const { setSession, setLocationVerified } = useCustomerStore();
   const { mode, toggleMode } = useThemeStore();
@@ -23,28 +23,23 @@ export default function CustomerLandingPage() {
 
   useEffect(() => {
     initializeSession();
-  }, [tenantId, tableId]);
+  }, [tenantId, tableNumber]);
 
   const initializeSession = async () => {
     try {
       setLoading(true);
-      // Fetch restaurant info
       const { data: infoRes } = await axios.get(`${API}/customer-order/${tenantId}/info`);
       const info = infoRes.data;
       setRestaurant(info);
 
-      // Initialize table session
       const { data: sessionRes } = await axios.post(
-        `${API}/customer-order/${tenantId}/table/${tableId}/session`
+        `${API}/customer-order/${tenantId}/table/${tableNumber}/session`
       );
-      const { session, table } = sessionRes.data;
+      const { session, tableNumber: tNum } = sessionRes.data;
 
-      // Store session info
       setSession({
         tenantId,
-        tableId,
-        tableNumber: table.number,
-        tableName: table.name,
+        tableNumber: tNum,
         sessionToken: session.sessionToken,
         restaurantName: info.restaurantName,
         currency: info.currency,
@@ -53,7 +48,6 @@ export default function CustomerLandingPage() {
         geofence: info.geofence,
       });
 
-      // Check geofence if enabled
       if (info.geofence?.enabled) {
         checkGeofence(info.geofence);
       } else {
@@ -68,7 +62,6 @@ export default function CustomerLandingPage() {
 
   const checkGeofence = (geofence) => {
     setGeoChecking(true);
-
     if (!navigator.geolocation) {
       setGeoBlocked(true);
       setGeoChecking(false);
@@ -78,13 +71,7 @@ export default function CustomerLandingPage() {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-        const distance = getDistanceMeters(
-          latitude,
-          longitude,
-          geofence.lat,
-          geofence.lng
-        );
-
+        const distance = getDistanceMeters(latitude, longitude, geofence.lat, geofence.lng);
         if (distance <= geofence.radius) {
           setLocationVerified(true);
           setGeoBlocked(false);
@@ -94,7 +81,6 @@ export default function CustomerLandingPage() {
         setGeoChecking(false);
       },
       () => {
-        // If user denies location, block
         setGeoBlocked(true);
         setGeoChecking(false);
       },
@@ -102,7 +88,6 @@ export default function CustomerLandingPage() {
     );
   };
 
-  // Haversine formula
   const getDistanceMeters = (lat1, lon1, lat2, lon2) => {
     const R = 6371000;
     const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -138,7 +123,6 @@ export default function CustomerLandingPage() {
 
   return (
     <div className={`min-h-screen flex flex-col ${dark ? 'bg-gray-900' : 'bg-gradient-to-br from-orange-50 via-white to-amber-50'}`}>
-      {/* Theme toggle */}
       <button
         onClick={toggleMode}
         className={`absolute top-4 right-4 p-2 rounded-full ${dark ? 'bg-gray-800 text-yellow-400' : 'bg-white text-gray-600 shadow-md'}`}
@@ -147,7 +131,6 @@ export default function CustomerLandingPage() {
       </button>
 
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
-        {/* Restaurant branding */}
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -162,11 +145,10 @@ export default function CustomerLandingPage() {
           </h1>
           <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${dark ? 'bg-gray-800 text-orange-400' : 'bg-orange-100 text-orange-700'}`}>
             <MapPin size={14} />
-            Table {useCustomerStore.getState().tableNumber}
+            Table {tableNumber}
           </div>
         </motion.div>
 
-        {/* Geofence blocked */}
         {geoBlocked && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -187,26 +169,20 @@ export default function CustomerLandingPage() {
           </motion.div>
         )}
 
-        {/* Checking location */}
         {geoChecking && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex items-center gap-3 mb-6"
-          >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-3 mb-6">
             <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
             <span className={dark ? 'text-gray-400' : 'text-gray-600'}>Verifying your location...</span>
           </motion.div>
         )}
 
-        {/* Order button */}
         <motion.button
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
           whileTap={{ scale: 0.97 }}
           disabled={geoBlocked || geoChecking}
-          onClick={() => navigate(`/order/${tenantId}/${tableId}/menu`)}
+          onClick={() => navigate(`/order/${tenantId}/${tableNumber}/menu`)}
           className={`w-full max-w-sm py-4 rounded-2xl text-lg font-bold shadow-lg transition-all
             ${geoBlocked || geoChecking
               ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
