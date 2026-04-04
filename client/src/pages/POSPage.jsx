@@ -66,19 +66,44 @@ export default function POSPage() {
 
   const handleSendKot = async () => {
     if (!cart.activeTable || cart.items.length === 0) return;
-    const kotItems = cart.sendKot();
-    // Emit KOT to KDS via creating a KOT-style event (reuses order:new socket event)
-    // The order isn't placed yet — just notify kitchen
+    const tableNum = cart.activeTable;
     try {
-      const socket = (await import('../config/socket')).getSocket();
-      if (socket) {
-        socket.emit('kot:send', {
-          tableNumber: cart.activeTable,
-          items: kotItems.map((i) => ({ name: i.name, quantity: i.quantity, productId: i.productId, categoryId: i.categoryId })),
-        });
+      // Determine which items are NEW or have INCREASED quantity since last KOT
+      const existing = cart.heldTables[tableNum];
+      const previousKotItems = existing?.kotItems || [];
+
+      const newItems = [];
+      for (const item of cart.items) {
+        const prev = previousKotItems.find((k) => k.productId === item.productId);
+        if (!prev) {
+          // Brand new item — send full quantity
+          newItems.push({ productId: item.productId, quantity: item.quantity });
+        } else if (item.quantity > prev.quantity) {
+          // Quantity increased — send only the difference
+          newItems.push({ productId: item.productId, quantity: item.quantity - prev.quantity });
+        }
+        // If quantity is same or decreased, skip — already sent to kitchen
       }
+
+      if (newItems.length === 0) {
+        alert('No new items to send to kitchen');
+        return;
+      }
+
+      // Create order with only new/changed items
+      const payload = {
+        items: newItems,
+        paymentMethod: 'CASH',
+        discount: cart.discount,
+        note: `Dine-in | Table ${tableNum} | KOT`,
+      };
+      await api.post('/orders', payload);
+
+      // Mark KOT sent in store, then auto-hold the table
+      cart.sendKot();
+      cart.holdTable(tableNum);
     } catch (err) {
-      console.error('KOT emit error:', err);
+      alert(err.response?.data?.message || 'Failed to send KOT');
     }
   };
 
