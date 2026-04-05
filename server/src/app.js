@@ -9,6 +9,9 @@ const { globalLimiter } = require("./middleware/rateLimiter");
 
 const app = express();
 
+// Trust first proxy (Nginx, etc.) so rate-limiter and req.ip work correctly
+app.set("trust proxy", 1);
+
 // ─── Global Middleware ───────────────────────────
 // Security headers
 app.use(helmet());
