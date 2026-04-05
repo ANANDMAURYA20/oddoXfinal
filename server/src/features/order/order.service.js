@@ -194,21 +194,82 @@ const getOrderById = async (tenantId, id) => {
 };
 
 /**
- * Update order status (e.g., mark as cancelled).
+ * Update order status or item statuses for a specific KDS station.
  */
-const updateOrderStatus = async (tenantId, id, { status }) => {
-  const order = await prisma.order.findFirst({ where: { id, tenantId } });
+const updateOrderStatus = async (tenantId, id, { status, stationId }) => {
+  const order = await prisma.order.findFirst({
+    where: { id, tenantId },
+    include: { items: { include: { product: true } } },
+  });
+
   if (!order) {
     throw ApiError.notFound("Order not found");
   }
 
-  const updatedOrder = await prisma.order.update({
-    where: { id },
-    data: { status },
-    include: {
-      items: { include: { product: { select: { id: true, name: true, categoryId: true } } } },
-      cashier: { select: { id: true, name: true } },
-    },
+  const updatedOrder = await prisma.$transaction(async (tx) => {
+    // 1. If stationId is provided, update only items handled by that station
+    if (stationId) {
+      const station = await tx.kdsStation.findFirst({ where: { id: stationId, tenantId } });
+      if (station) {
+        // Find items matching station categories
+        const itemIdsToUpdate = order.items
+          .filter((item) => {
+            const categoryId = item.product?.categoryId;
+            return !station.categoryIds.length || station.categoryIds.includes(categoryId);
+          })
+          .map((item) => item.id);
+
+        if (itemIdsToUpdate.length > 0) {
+          await tx.orderItem.updateMany({
+            where: { id: { in: itemIdsToUpdate } },
+            data: { status },
+          });
+        }
+      }
+    } else {
+      // 2. If no stationId, update all items to match the status (if it makes sense)
+      // Map OrderStatus to OrderItemStatus where possible
+      const itemStatusMap = {
+        PENDING: "PENDING",
+        PREPARING: "PREPARING",
+        READY: "READY",
+        COMPLETED: "COMPLETED",
+      };
+
+      const newItemStatus = itemStatusMap[status];
+      if (newItemStatus) {
+        await tx.orderItem.updateMany({
+          where: { orderId: id },
+          data: { status: newItemStatus },
+        });
+      }
+    }
+
+    // 3. Recalculate global Order status based on all items
+    const allItems = await tx.orderItem.findMany({ where: { orderId: id } });
+    let newOrderStatus = status; // Default to what was requested
+
+    // Auto-calculate logic if this was a KDS move (status is one of PENDING, PREPARING, READY, COMPLETED)
+    if (["PENDING", "PREPARING", "READY", "COMPLETED"].includes(status)) {
+      if (allItems.every((i) => i.status === "COMPLETED")) {
+        newOrderStatus = "COMPLETED";
+      } else if (allItems.every((i) => i.status === "READY" || i.status === "COMPLETED")) {
+        newOrderStatus = "READY";
+      } else if (allItems.some((i) => i.status === "PREPARING" || i.status === "READY" || i.status === "COMPLETED")) {
+        newOrderStatus = "PREPARING";
+      } else {
+        newOrderStatus = "PENDING";
+      }
+    }
+
+    return tx.order.update({
+      where: { id },
+      data: { status: newOrderStatus },
+      include: {
+        items: { include: { product: { select: { id: true, name: true, categoryId: true } } } },
+        cashier: { select: { id: true, name: true } },
+      },
+    });
   });
 
   // Emit event to update KDS screens

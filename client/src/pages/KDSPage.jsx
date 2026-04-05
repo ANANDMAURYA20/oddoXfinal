@@ -124,9 +124,26 @@ export default function KDSPage() {
 
   const moveOrder = async (orderId, newStatus) => {
     try {
-      await api.patch(`/orders/${orderId}/status`, { status: newStatus });
+      await api.patch(`/orders/${orderId}/status`, { 
+        status: newStatus,
+        stationId: selectedStationId 
+      });
+      // Handle the update locally to keep UI snappy, though socket will also broadcast
       setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+        prev.map((o) => {
+          if (o.id !== orderId) return o;
+          
+          // Optimistically update items for this station
+          const updatedItems = o.items.map(item => {
+            const categoryId = item.product?.categoryId || item.product?.category?.id;
+            if (!selectedStationId || (categoryId && station?.categoryIds.includes(categoryId))) {
+              return { ...item, status: newStatus };
+            }
+            return item;
+          });
+          
+          return { ...o, items: updatedItems };
+        })
       );
     } catch (err) {
       console.error('Failed to update order status:', err);
@@ -175,6 +192,22 @@ export default function KDSPage() {
       const categoryId = item.product?.categoryId || item.product?.category?.id;
       return !categoryId || station.categoryIds.includes(categoryId);
     });
+  };
+
+  // Helper to determine the status of an order relative to a specific station
+  const getOrderStationStatus = (order) => {
+    if (!station || station.categoryIds.length === 0) {
+      return order.status; // Global status if no station filter
+    }
+
+    const relevantItems = filterOrderItems(order);
+    if (relevantItems.length === 0) return null;
+
+    // Determine status based on the progress of relevant items
+    if (relevantItems.every((i) => i.status === 'COMPLETED')) return 'COMPLETED';
+    if (relevantItems.every((i) => i.status === 'READY' || i.status === 'COMPLETED')) return 'READY';
+    if (relevantItems.some((i) => i.status === 'PREPARING' || i.status === 'READY' || i.status === 'COMPLETED')) return 'PREPARING';
+    return 'PENDING';
   };
 
   const getTimeSince = (dateStr) => {
@@ -262,10 +295,12 @@ export default function KDSPage() {
         </div>
       </div>
 
-      {/* Columns */}
       <div className="flex-1 grid grid-cols-4 gap-0 overflow-hidden">
         {STATUS_COLUMNS.map((col) => {
-          const columnOrders = filteredOrders.filter((o) => o.status === col.key);
+          const columnOrders = filteredOrders.filter((o) => {
+            const stationStatus = getOrderStationStatus(o);
+            return stationStatus === col.key;
+          });
           return (
             <div
               key={col.key}
