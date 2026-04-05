@@ -11,11 +11,28 @@ const USERS_PER_TENANT = 50;
 const CATEGORIES_PER_TENANT = 5;
 const PRODUCTS_PER_TENANT = 50;
 const ORDERS_PER_TENANT = 100;
-const DEFAULT_PASSWORD = "SeedUser@123";
+const DEFAULT_PASSWORD = "123456";
 
 async function main() {
   console.log("🚀 Starting Massive Scalability Seed...");
   const startTime = Date.now();
+
+  // 0. Seed Super Admin (upsert so it's idempotent)
+  console.log("👑 Seeding Super Admin...");
+  const superAdminPassword = await bcrypt.hash(DEFAULT_PASSWORD, 10);
+  await prisma.user.upsert({
+    where: { email: "admin@pos.com" },
+    update: {},
+    create: {
+      name: "Super Admin",
+      email: "admin@pos.com",
+      password: superAdminPassword,
+      role: "SUPER_ADMIN",
+      isActive: true,
+      tenantId: null,
+    },
+  });
+  console.log(`   ✅ Super Admin seeded (admin@pos.com / ${DEFAULT_PASSWORD})`);
 
   // 1. Pre-hash password for speed
   console.log("🔐 Hashing default password...");
