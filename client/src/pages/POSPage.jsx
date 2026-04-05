@@ -4,6 +4,7 @@ import { Search, Plus, Minus, Trash2, X, Delete, CreditCard, Banknote, Smartphon
 import { QRCodeSVG } from 'qrcode.react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../config/api';
+import { getSocket } from '../config/socket';
 import { getImageUrl } from '../utils/imageUrl';
 import BillModal from '../components/BillModal';
 import useCartStore from '../stores/useCartStore';
@@ -68,7 +69,21 @@ export default function POSPage() {
       fetchQrTableOrders();
       // Poll QR orders every 15 seconds
       const interval = setInterval(fetchQrTableOrders, 15000);
-      return () => clearInterval(interval);
+
+      // Listen for real-time table hold/release events
+      const socket = getSocket();
+      if (socket) {
+        socket.on('table:held', fetchQrTableOrders);
+        socket.on('table:released', fetchQrTableOrders);
+      }
+
+      return () => {
+        clearInterval(interval);
+        if (socket) {
+          socket.off('table:held', fetchQrTableOrders);
+          socket.off('table:released', fetchQrTableOrders);
+        }
+      };
     }
   }, [registerSession]);
 

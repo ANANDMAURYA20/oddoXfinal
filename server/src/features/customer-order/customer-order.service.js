@@ -100,6 +100,22 @@ const initSession = async (tenantId, tableNumber) => {
     return { session: existingSession, tableNumber: tableNum };
   }
 
+  // Check if table has unbilled QR orders (table is held until POS owner takes out the bill)
+  const unbilledOrders = await prisma.order.findFirst({
+    where: {
+      tenantId,
+      tableNumber: tableNum,
+      orderSource: "QR",
+      status: { notIn: ["COMPLETED", "CANCELLED", "REFUNDED"] },
+    },
+  });
+
+  if (unbilledOrders) {
+    throw ApiError.badRequest(
+      "This table is currently occupied with pending orders. Please ask the cashier to complete the bill first."
+    );
+  }
+
   // Create new session (expires in 3 hours)
   const expiresAt = new Date(Date.now() + 3 * 60 * 60 * 1000);
   const session = await prisma.customerSession.create({
@@ -300,6 +316,9 @@ const placeOrder = async (tenantId, data) => {
 
   // Emit to tenant (KDS + admin + POS)
   emitToTenant(tenantId, "order:new", order);
+
+  // Emit table hold event so POS updates table status in real-time
+  emitToTenant(tenantId, "table:held", { tableNumber: tableNum });
 
   // Emit to KDS stations
   try {
