@@ -5,7 +5,7 @@ const createUserSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   role: z.enum(["TENANT_ADMIN", "CASHIER", "KDS_STAFF"]).default("CASHIER"),
-  kdsStationId: z.string().uuid().optional(),
+  kdsStationId: z.preprocess((val) => (val === "" ? null : val), z.string().uuid().nullable().optional()),
 });
 
 const updateUserSchema = z.object({
@@ -13,7 +13,7 @@ const updateUserSchema = z.object({
   email: z.string().email().optional(),
   role: z.enum(["TENANT_ADMIN", "CASHIER", "KDS_STAFF"]).optional(),
   isActive: z.boolean().optional(),
-  kdsStationId: z.string().uuid().nullable().optional(),
+  kdsStationId: z.preprocess((val) => (val === "" ? null : val), z.string().uuid().nullable().optional()),
 });
 
 module.exports = { createUserSchema, updateUserSchema };

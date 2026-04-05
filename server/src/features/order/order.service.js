@@ -194,21 +194,82 @@ const getOrderById = async (tenantId, id) => {
 };
 
 /**
- * Update order status (e.g., mark as cancelled).
+ * Update order status or item statuses for a specific KDS station.
  */
-const updateOrderStatus = async (tenantId, id, { status }) => {
-  const order = await prisma.order.findFirst({ where: { id, tenantId } });
+const updateOrderStatus = async (tenantId, id, { status, stationId }) => {
+  const order = await prisma.order.findFirst({
+    where: { id, tenantId },
+    include: { items: { include: { product: true } } },
+  });
+
   if (!order) {
     throw ApiError.notFound("Order not found");
   }
 
-  const updatedOrder = await prisma.order.update({
-    where: { id },
-    data: { status },
-    include: {
-      items: { include: { product: { select: { id: true, name: true, categoryId: true } } } },
-      cashier: { select: { id: true, name: true } },
-    },
+  const updatedOrder = await prisma.$transaction(async (tx) => {
+    // 1. If stationId is provided, update only items handled by that station
+    if (stationId) {
+      const station = await tx.kdsStation.findFirst({ where: { id: stationId, tenantId } });
+      if (station) {
+        // Find items matching station categories
+        const itemIdsToUpdate = order.items
+          .filter((item) => {
+            const categoryId = item.product?.categoryId;
+            return !station.categoryIds.length || station.categoryIds.includes(categoryId);
+          })
+          .map((item) => item.id);
+
+        if (itemIdsToUpdate.length > 0) {
+          await tx.orderItem.updateMany({
+            where: { id: { in: itemIdsToUpdate } },
+            data: { status },
+          });
+        }
+      }
+    } else {
+      // 2. If no stationId, update all items to match the status (if it makes sense)
+      // Map OrderStatus to OrderItemStatus where possible
+      const itemStatusMap = {
+        PENDING: "PENDING",
+        PREPARING: "PREPARING",
+        READY: "READY",
+        COMPLETED: "COMPLETED",
+      };
+
+      const newItemStatus = itemStatusMap[status];
+      if (newItemStatus) {
+        await tx.orderItem.updateMany({
+          where: { orderId: id },
+          data: { status: newItemStatus },
+        });
+      }
+    }
+
+    // 3. Recalculate global Order status based on all items
+    const allItems = await tx.orderItem.findMany({ where: { orderId: id } });
+    let newOrderStatus = status; // Default to what was requested
+
+    // Auto-calculate logic if this was a KDS move (status is one of PENDING, PREPARING, READY, COMPLETED)
+    if (["PENDING", "PREPARING", "READY", "COMPLETED"].includes(status)) {
+      if (allItems.every((i) => i.status === "COMPLETED")) {
+        newOrderStatus = "COMPLETED";
+      } else if (allItems.every((i) => i.status === "READY" || i.status === "COMPLETED")) {
+        newOrderStatus = "READY";
+      } else if (allItems.some((i) => i.status === "PREPARING" || i.status === "READY" || i.status === "COMPLETED")) {
+        newOrderStatus = "PREPARING";
+      } else {
+        newOrderStatus = "PENDING";
+      }
+    }
+
+    return tx.order.update({
+      where: { id },
+      data: { status: newOrderStatus },
+      include: {
+        items: { include: { product: { select: { id: true, name: true, categoryId: true } } } },
+        cashier: { select: { id: true, name: true } },
+      },
+    });
   });
 
   // Emit event to update KDS screens
@@ -392,26 +453,11 @@ const addItemsToOrder = async (tenantId, id, { items }) => {
  * Returns orders that are NOT COMPLETED/CANCELLED/REFUNDED on tables with active sessions.
  */
 const getActiveQrTableOrders = async (tenantId) => {
-  // Get all active customer sessions
-  const sessions = await prisma.customerSession.findMany({
-    where: {
-      tenantId,
-      isActive: true,
-      expiresAt: { gt: new Date() },
-    },
-    select: { id: true, tableNumber: true, sessionToken: true },
-  });
-
-  if (sessions.length === 0) return [];
-
-  const sessionIds = sessions.map((s) => s.id);
-  const sessionByTable = new Map(sessions.map((s) => [s.tableNumber, s]));
-
-  // Fetch all non-completed QR orders for these sessions
+  // Fetch ALL non-completed QR orders (regardless of session status)
+  // This ensures tables stay "held" even if the session expired
   const orders = await prisma.order.findMany({
     where: {
       tenantId,
-      sessionId: { in: sessionIds },
       orderSource: "QR",
       status: { notIn: ["COMPLETED", "CANCELLED", "REFUNDED"] },
     },
@@ -419,9 +465,12 @@ const getActiveQrTableOrders = async (tenantId) => {
       items: {
         include: { product: { select: { id: true, name: true, image: true, categoryId: true } } },
       },
+      session: { select: { sessionToken: true } },
     },
     orderBy: { createdAt: "asc" },
   });
+
+  if (orders.length === 0) return [];
 
   // Group by table number
   const tableMap = new Map();
@@ -429,10 +478,9 @@ const getActiveQrTableOrders = async (tenantId) => {
   for (const order of orders) {
     const tNum = order.tableNumber;
     if (!tableMap.has(tNum)) {
-      const session = sessionByTable.get(tNum);
       tableMap.set(tNum, {
         tableNumber: tNum,
-        sessionToken: session?.sessionToken,
+        sessionToken: order.session?.sessionToken || null,
         orders: [],
         allItems: [],
         totalAmount: 0,
@@ -476,20 +524,11 @@ const getActiveQrTableOrders = async (tenantId) => {
 const completeQrTable = async (tenantId, tableNumber, { paymentMethod = "CASH" }) => {
   const tableNum = parseInt(tableNumber);
 
-  // Find active session
-  const session = await prisma.customerSession.findFirst({
-    where: { tenantId, tableNumber: tableNum, isActive: true, expiresAt: { gt: new Date() } },
-  });
-
-  if (!session) {
-    throw ApiError.notFound("No active session on this table");
-  }
-
-  // Find all non-completed QR orders on this table
+  // Find all non-completed QR orders on this table (regardless of session status)
   const orders = await prisma.order.findMany({
     where: {
       tenantId,
-      sessionId: session.id,
+      tableNumber: tableNum,
       orderSource: "QR",
       status: { notIn: ["COMPLETED", "CANCELLED", "REFUNDED"] },
     },
@@ -501,6 +540,11 @@ const completeQrTable = async (tenantId, tableNumber, { paymentMethod = "CASH" }
   if (orders.length === 0) {
     throw ApiError.badRequest("No pending orders on this table");
   }
+
+  // Find all active sessions on this table (could be expired but still active)
+  const sessions = await prisma.customerSession.findMany({
+    where: { tenantId, tableNumber: tableNum, isActive: true },
+  });
 
   // Complete all orders in a transaction
   const updatedOrders = await prisma.$transaction(async (tx) => {
@@ -516,11 +560,13 @@ const completeQrTable = async (tenantId, tableNumber, { paymentMethod = "CASH" }
       results.push(updated);
     }
 
-    // Close the session
-    await tx.customerSession.update({
-      where: { id: session.id },
-      data: { isActive: false },
-    });
+    // Close all active sessions on this table
+    for (const session of sessions) {
+      await tx.customerSession.update({
+        where: { id: session.id },
+        data: { isActive: false },
+      });
+    }
 
     return results;
   });
@@ -534,6 +580,9 @@ const completeQrTable = async (tenantId, tableNumber, { paymentMethod = "CASH" }
       updatedAt: order.updatedAt,
     });
   }
+
+  // Emit table released event so POS updates table status
+  emitToTenant(tenantId, "table:released", { tableNumber: tableNum });
 
   // Build a combined bill summary
   const combinedOrder = {

@@ -1,4 +1,5 @@
 const ApiError = require("../utils/ApiError");
+const logger = require("../utils/logger");
 
 /**
  * Zod validation middleware.
@@ -17,6 +18,11 @@ const validate = (schema, source = "body") => {
         field: e.path.join("."),
         message: e.message,
       }));
+
+      logger.error("Validation failed", { 
+        url: req.originalUrl,
+        errors: errors 
+      });
 
       throw ApiError.badRequest("Validation failed", errors);
     }

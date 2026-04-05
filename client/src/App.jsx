@@ -18,6 +18,7 @@ import KDSLoginPage from './pages/KDSLoginPage';
 import KDSSettingsPage from './pages/KDSSettingsPage';
 import TableManagementPage from './pages/TableManagementPage';
 import CustomerDisplayPage from './pages/CustomerDisplayPage';
+import LandingPage from './pages/LandingPage';
 
 // Lazy-loaded customer pages (public, no auth)
 const CustomerLandingPage = lazy(() => import('./pages/customer/CustomerLandingPage'));
@@ -156,9 +157,9 @@ export default function App() {
             }
           />
 
-          {/* Redirect root to POS */}
-          <Route path="/" element={<Navigate to="/pos" replace />} />
-          <Route path="*" element={<Navigate to="/pos" replace />} />
+          {/* Landing Page as Root */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
     </BrowserRouter>

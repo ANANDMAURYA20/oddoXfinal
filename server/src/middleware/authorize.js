@@ -16,7 +16,7 @@ const authorize = (...allowedRoles) => {
       return next();
     }
 
-    next();
+    throw ApiError.forbidden("You do not have permission to perform this action");
   };
 };
 

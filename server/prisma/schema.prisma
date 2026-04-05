@@ -47,6 +47,13 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum OrderItemStatus {
+  PENDING
+  PREPARING
+  READY
+  COMPLETED
+}
+
 enum DiscountType {
   PERCENTAGE
   FLAT
@@ -245,6 +252,7 @@ model OrderItem {
   price    Float
   addons   Json?  // Store selected addons as JSON: [{name, price}]
   note     String?
+  status   OrderItemStatus @default(PENDING)
 
   orderId String
   order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
