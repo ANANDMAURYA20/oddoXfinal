@@ -4,9 +4,15 @@ const prisma = require("../../config/db");
  * Sales summary: total orders, total revenue, average order value.
  */
 const getSalesSummary = async (tenantId) => {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
   const [totals, todayTotals] = await Promise.all([
     prisma.order.aggregate({
-      where: { tenantId, status: "COMPLETED" },
+      where: {
+        tenantId,
+        paymentStatus: "PAID",
+      },
       _sum: { totalAmount: true },
       _count: true,
       _avg: { totalAmount: true },
@@ -14,8 +20,8 @@ const getSalesSummary = async (tenantId) => {
     prisma.order.aggregate({
       where: {
         tenantId,
-        status: "COMPLETED",
-        createdAt: { gte: startOfDay(new Date()) },
+        paymentStatus: "PAID",
+        createdAt: { gte: startOfToday },
       },
       _sum: { totalAmount: true },
       _count: true,
@@ -23,15 +29,11 @@ const getSalesSummary = async (tenantId) => {
   ]);
 
   return {
-    allTime: {
-      totalOrders: totals._count,
-      totalRevenue: totals._sum.totalAmount || 0,
-      avgOrderValue: Math.round((totals._avg.totalAmount || 0) * 100) / 100,
-    },
-    today: {
-      totalOrders: todayTotals._count,
-      totalRevenue: todayTotals._sum.totalAmount || 0,
-    },
+    totalOrders: totals._count || 0,
+    totalRevenue: Math.round((totals._sum.totalAmount || 0) * 100) / 100,
+    avgOrderValue: Math.round((totals._avg.totalAmount || 0) * 100) / 100,
+    todayOrders: todayTotals._count || 0,
+    todaySales: Math.round((todayTotals._sum.totalAmount || 0) * 100) / 100,
   };
 };
 
@@ -45,7 +47,7 @@ const getDailySales = async (tenantId, { days = 30 }) => {
   const orders = await prisma.order.findMany({
     where: {
       tenantId,
-      status: "COMPLETED",
+      paymentStatus: "PAID",
       createdAt: { gte: startDate },
     },
     select: { totalAmount: true, createdAt: true },
@@ -72,7 +74,10 @@ const getTopProducts = async (tenantId, { limit = 10 }) => {
   const topProducts = await prisma.orderItem.groupBy({
     by: ["productId"],
     where: {
-      order: { tenantId, status: "COMPLETED" },
+      order: {
+        tenantId,
+        paymentStatus: "PAID",
+      },
     },
     _sum: { quantity: true, price: true },
     orderBy: { _sum: { quantity: "desc" } },
@@ -89,9 +94,9 @@ const getTopProducts = async (tenantId, { limit = 10 }) => {
 
   return topProducts.map((p) => ({
     productId: p.productId,
-    productName: productMap.get(p.productId) || "Unknown",
-    totalQuantity: p._sum.quantity,
-    totalRevenue: p._sum.price,
+    name: productMap.get(p.productId) || "Unknown",
+    totalSold: p._sum.quantity || 0,
+    totalRevenue: p._sum.price || 0,
   }));
 };
 
@@ -104,7 +109,7 @@ const getRevenueChart = async (tenantId) => {
   const orders = await prisma.order.findMany({
     where: {
       tenantId,
-      status: "COMPLETED",
+      paymentStatus: "PAID",
       createdAt: { gte: startOfYear },
     },
     select: { totalAmount: true, createdAt: true },

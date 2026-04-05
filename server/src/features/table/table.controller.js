@@ -32,4 +32,9 @@ const deleteTable = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, null, "Table deleted"));
 });
 
-module.exports = { createTable, listTables, getTableById, updateTable, updateTableStatus, deleteTable };
+const bulkCreateTables = asyncHandler(async (req, res) => {
+  const tables = await tableService.bulkCreateTables(req.tenantId, req.body.count);
+  res.status(201).json(new ApiResponse(201, tables, `${tables.length} tables created`));
+});
+
+module.exports = { createTable, listTables, getTableById, updateTable, updateTableStatus, deleteTable, bulkCreateTables };

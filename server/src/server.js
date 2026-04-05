@@ -14,8 +14,8 @@ const startServer = async () => {
     // Connect Redis
     await cache.connect();
 
-    const httpServer = app.listen(env.PORT, () => {
-      logger.info(`🚀 Server running on http://localhost:${env.PORT}`);
+    const httpServer = app.listen(env.PORT, "0.0.0.0", () => {
+      logger.info(`🚀 Server running on http://127.0.0.1:${env.PORT}`);
       logger.info(`📋 Environment: ${env.NODE_ENV}`);
     });
 

@@ -8,13 +8,14 @@ const createOrder = asyncHandler(async (req, res) => {
 });
 
 const listOrders = asyncHandler(async (req, res) => {
-  const { page, limit, status, startDate, endDate } = req.query;
+  const { page, limit, status, startDate, endDate, cashierId } = req.query;
   const result = await orderService.listOrders(req.tenantId, {
     page: parseInt(page) || 1,
     limit: parseInt(limit) || 20,
     status,
     startDate,
     endDate,
+    cashierId,
   });
   res.status(200).json(new ApiResponse(200, result, "Orders fetched"));
 });
@@ -34,4 +35,19 @@ const refundOrder = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, order, "Order refunded successfully"));
 });
 
-module.exports = { createOrder, listOrders, getOrderById, updateOrderStatus, refundOrder };
+const addItemsToOrder = asyncHandler(async (req, res) => {
+  const order = await orderService.addItemsToOrder(req.tenantId, req.params.id, req.body);
+  res.status(200).json(new ApiResponse(200, order, "Items added to order"));
+});
+
+const getActiveQrTableOrders = asyncHandler(async (req, res) => {
+  const result = await orderService.getActiveQrTableOrders(req.tenantId);
+  res.status(200).json(new ApiResponse(200, result, "Active QR table orders fetched"));
+});
+
+const completeQrTable = asyncHandler(async (req, res) => {
+  const order = await orderService.completeQrTable(req.tenantId, req.params.tableNumber, req.body);
+  res.status(200).json(new ApiResponse(200, order, "QR table orders completed"));
+});
+
+module.exports = { createOrder, listOrders, getOrderById, updateOrderStatus, refundOrder, addItemsToOrder, getActiveQrTableOrders, completeQrTable };

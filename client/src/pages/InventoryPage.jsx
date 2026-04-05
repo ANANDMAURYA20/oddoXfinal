@@ -1,43 +1,59 @@
-import { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, X, Package, Tag, Search } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Plus, Pencil, Trash2, X, Package, Tag, Search, ToggleLeft, ToggleRight, RefreshCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useQueryClient } from '@tanstack/react-query';
 import api from '../config/api';
+import { useProducts, useCategories } from '../hooks/useInventory';
+import { getImageUrl } from '../utils/imageUrl';
 
 export default function InventoryPage() {
   const [tab, setTab] = useState('products'); // products | categories
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // all | active | inactive
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    fetchProducts();
-    fetchCategories();
-  }, []);
+  // Map frontend status filter to backend isActive param
+  const isActiveParam = useMemo(() => {
+    if (statusFilter === 'active') return 'true';
+    if (statusFilter === 'inactive') return 'false';
+    return 'all';
+  }, [statusFilter]);
 
-  const fetchProducts = async () => {
+  const { 
+    data: productData, 
+    isLoading: loadingProducts,
+    isFetching: fetchingProducts 
+  } = useProducts({ 
+    isActive: isActiveParam, // Backend expects 'isActive'
+    search: search
+  });
+
+  const { 
+    data: categories = [], 
+    isLoading: loadingCategories,
+    isFetching: fetchingCategories 
+  } = useCategories();
+
+  const products = productData?.products || [];
+  
+  const isInitialLoading = (tab === 'products' ? (loadingProducts && products.length === 0) : (loadingCategories && categories.length === 0));
+  const isRefreshing = (tab === 'products' ? fetchingProducts : fetchingCategories);
+
+  const toggleProductStatus = async (product) => {
+    const newStatus = !product.isActive;
     try {
-      setLoading(true);
-      const { data } = await api.get('/products', { params: { limit: 100 } });
-      setProducts(data.data.products);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
-  };
-
-  const fetchCategories = async () => {
-    try {
-      const { data } = await api.get('/categories');
-      setCategories(data.data);
-    } catch (err) { console.error(err); }
+      await api.patch(`/products/${product.id}`, { isActive: newStatus });
+      queryClient.invalidateQueries({ queryKey: ['inventory', 'products'] });
+    } catch (err) { alert(err.response?.data?.message || 'Failed to update status'); }
   };
 
   const deleteProduct = async (id) => {
-    if (!confirm('Delete this product?')) return;
+    if (!confirm('Delete this product? It will be marked as inactive.')) return;
     try {
       await api.delete(`/products/${id}`);
-      setProducts((p) => p.filter((x) => x.id !== id));
+      queryClient.invalidateQueries({ queryKey: ['inventory', 'products'] });
     } catch (err) { alert(err.response?.data?.message || 'Failed'); }
   };
 
@@ -45,21 +61,28 @@ export default function InventoryPage() {
     if (!confirm('Delete this category?')) return;
     try {
       await api.delete(`/categories/${id}`);
-      setCategories((c) => c.filter((x) => x.id !== id));
+      queryClient.invalidateQueries({ queryKey: ['inventory', 'categories'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory', 'products'] });
     } catch (err) { alert(err.response?.data?.message || 'Failed'); }
   };
 
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const displayProducts = products;
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-slate-900">Inventory</h1>
-          <p className="mt-0.5 text-sm text-slate-500">Manage your products and categories</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="font-display text-2xl font-bold text-slate-900">Inventory</h1>
+            <p className="mt-0.5 text-sm text-slate-500">Manage your products and categories</p>
+          </div>
+          {isRefreshing && !isInitialLoading && (
+            <div className="flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-[10px] font-semibold text-brand-600 animate-pulse">
+              <RefreshCcw size={10} className="animate-spin-slow" />
+              Refreshing...
+            </div>
+          )}
         </div>
         <button
           onClick={() => { setEditing(null); setShowModal(true); }}
@@ -91,21 +114,46 @@ export default function InventoryPage() {
         ))}
       </div>
 
-      {/* Search (products only) */}
+      {/* Search + Status Filter (products only) */}
       {tab === 'products' && (
-        <div className="relative mb-4 max-w-sm">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search products..."
-            className="w-full rounded-xl border border-[var(--color-border)] bg-white pl-10 pr-4 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
-          />
+        <div className="flex items-center gap-4 mb-4 flex-wrap">
+          <div className="relative max-w-sm flex-1">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search products..."
+              className="w-full rounded-xl border border-[var(--color-border)] bg-white pl-10 pr-4 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+            />
+          </div>
+          <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
+            {[
+              { key: 'all', label: 'All' },
+              { key: 'active', label: 'Active' },
+              { key: 'inactive', label: 'Inactive' },
+            ].map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setStatusFilter(f.key)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                  statusFilter === f.key
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Products Table */}
-      {tab === 'products' && (
+      {/* Content */}
+      {isInitialLoading ? (
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-3 border-brand-200 border-t-brand-600" />
+        </div>
+      ) : tab === 'products' ? (
         <div className="rounded-2xl border border-[var(--color-border)] bg-white shadow-sm overflow-hidden">
           <table className="w-full">
             <thead>
@@ -114,17 +162,24 @@ export default function InventoryPage() {
                 <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Category</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Price</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Stock</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
                 <th className="px-5 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border)]">
-              {filteredProducts.map((product) => (
-                <tr key={product.id} className="hover:bg-slate-50/50 transition-colors">
+              {displayProducts.map((product) => (
+                <tr key={product.id} className={`hover:bg-slate-50/50 transition-colors ${!product.isActive ? 'opacity-60' : ''}`}>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 font-display font-bold text-brand-600 text-sm">
-                        {product.name.charAt(0)}
-                      </div>
+                      {product.image ? (
+                        <img src={getImageUrl(product.image)} alt={product.name} className="h-9 w-9 rounded-lg object-cover" />
+                      ) : (
+                        <div className={`flex h-9 w-9 items-center justify-center rounded-lg font-display font-bold text-sm ${
+                          product.isActive ? 'bg-brand-50 text-brand-600' : 'bg-slate-100 text-slate-400'
+                        }`}>
+                          {product.name.charAt(0)}
+                        </div>
+                      )}
                       <div>
                         <p className="text-sm font-medium text-slate-800">{product.name}</p>
                         {product.barcode && (
@@ -146,6 +201,25 @@ export default function InventoryPage() {
                       {product.stock}
                     </span>
                   </td>
+                  <td className="px-5 py-3.5">
+                    <button
+                      onClick={() => toggleProductStatus(product)}
+                      className="flex items-center gap-1.5"
+                      title={product.isActive ? 'Click to deactivate' : 'Click to activate'}
+                    >
+                      {product.isActive ? (
+                        <>
+                          <ToggleRight size={22} className="text-emerald-500" />
+                          <span className="text-xs font-semibold text-emerald-600">Active</span>
+                        </>
+                      ) : (
+                        <>
+                          <ToggleLeft size={22} className="text-slate-400" />
+                          <span className="text-xs font-semibold text-slate-400">Inactive</span>
+                        </>
+                      )}
+                    </button>
+                  </td>
                   <td className="px-5 py-3.5 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button
@@ -166,17 +240,14 @@ export default function InventoryPage() {
               ))}
             </tbody>
           </table>
-          {filteredProducts.length === 0 && (
+          {displayProducts.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-slate-300">
               <Package size={36} strokeWidth={1.5} />
               <p className="mt-2 text-sm">No products found</p>
             </div>
           )}
         </div>
-      )}
-
-      {/* Categories List */}
-      {tab === 'categories' && (
+      ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {categories.map((cat) => (
             <div
@@ -228,8 +299,7 @@ export default function InventoryPage() {
             onSaved={() => {
               setShowModal(false);
               setEditing(null);
-              if (tab === 'products') fetchProducts();
-              else fetchCategories();
+              queryClient.invalidateQueries({ queryKey: ['inventory'] });
             }}
           />
         )}
@@ -251,6 +321,8 @@ function FormModal({ tab, editing, categories, onClose, onSaved }) {
           lowStock: editing?.lowStock || 5,
           barcode: editing?.barcode || '',
           categoryId: editing?.category?.id || editing?.categoryId || '',
+          image: editing?.image || '',
+          vegType: editing?.vegType || '',
         }
       : { name: editing?.name || '' }
   );
@@ -268,6 +340,8 @@ function FormModal({ tab, editing, categories, onClose, onSaved }) {
             stock: parseInt(form.stock, 10),
             lowStock: parseInt(form.lowStock, 10),
             categoryId: form.categoryId || undefined,
+            image: form.image || undefined,
+            vegType: form.vegType || undefined,
           }
         : { name: form.name };
 
@@ -365,6 +439,33 @@ function FormModal({ tab, editing, categories, onClose, onSaved }) {
                   placeholder="Optional"
                   className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
                 />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">Image URL</label>
+                <input
+                  value={form.image}
+                  onChange={(e) => setForm({ ...form, image: e.target.value })}
+                  placeholder="https://example.com/image.jpg"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                />
+                {form.image && (
+                  <div className="mt-2 relative w-20 h-20 rounded-xl overflow-hidden border border-[var(--color-border)]">
+                    <img src={getImageUrl(form.image)} alt="Preview" className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">Food Type</label>
+                <select
+                  value={form.vegType}
+                  onChange={(e) => setForm({ ...form, vegType: e.target.value })}
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-2.5 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                >
+                  <option value="">Not specified</option>
+                  <option value="veg">Veg</option>
+                  <option value="non-veg">Non-Veg</option>
+                  <option value="egg">Egg</option>
+                </select>
               </div>
             </>
           )}

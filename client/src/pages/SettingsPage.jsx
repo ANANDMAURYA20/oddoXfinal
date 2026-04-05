@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Store, Percent, Receipt, DollarSign } from 'lucide-react';
+import { Save, Store, Percent, Receipt, DollarSign, CreditCard, QrCode, UtensilsCrossed, MapPin, Smartphone, Shield, FileText, Phone, Image } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../config/api';
 
@@ -10,6 +10,20 @@ export default function SettingsPage() {
     taxRate: 0,
     taxLabel: 'GST',
     receiptNote: '',
+    paymentMethods: [],
+    upiId: '',
+    totalTables: 0,
+    storeAddress: '',
+    storePhone: '',
+    gstNumber: '',
+    fssaiNumber: '',
+    storeLogo: '',
+    qrOrderingEnabled: false,
+    qrOrderingMode: 'order',
+    geofenceEnabled: false,
+    restaurantLat: '',
+    restaurantLng: '',
+    geofenceRadius: 100,
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -30,6 +44,20 @@ export default function SettingsPage() {
           taxRate: data.data.taxRate || 0,
           taxLabel: data.data.taxLabel || 'GST',
           receiptNote: data.data.receiptNote || '',
+          paymentMethods: data.data.paymentMethods || [],
+          upiId: data.data.upiId || '',
+          totalTables: data.data.totalTables || 0,
+          storeAddress: data.data.storeAddress || '',
+          storePhone: data.data.storePhone || '',
+          gstNumber: data.data.gstNumber || '',
+          fssaiNumber: data.data.fssaiNumber || '',
+          storeLogo: data.data.storeLogo || '',
+          qrOrderingEnabled: data.data.qrOrderingEnabled || false,
+          qrOrderingMode: data.data.qrOrderingMode || 'order',
+          geofenceEnabled: data.data.geofenceEnabled || false,
+          restaurantLat: data.data.restaurantLat || '',
+          restaurantLng: data.data.restaurantLng || '',
+          geofenceRadius: data.data.geofenceRadius || 100,
         });
       }
     } catch (err) {
@@ -47,6 +75,10 @@ export default function SettingsPage() {
       await api.patch('/settings', {
         ...form,
         taxRate: parseFloat(form.taxRate),
+        totalTables: parseInt(form.totalTables) || 0,
+        restaurantLat: form.restaurantLat ? parseFloat(form.restaurantLat) : null,
+        restaurantLng: form.restaurantLng ? parseFloat(form.restaurantLng) : null,
+        geofenceRadius: parseInt(form.geofenceRadius) || 100,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -92,6 +124,79 @@ export default function SettingsPage() {
           />
         </div>
 
+        {/* Bill / Receipt Details */}
+        <div className="border-t border-[var(--color-border)] pt-6">
+          <h3 className="flex items-center gap-2 text-base font-semibold text-slate-800 mb-4">
+            <FileText size={18} className="text-indigo-500" />
+            Bill / Receipt Details
+          </h3>
+
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">Store Logo URL</label>
+              <input
+                value={form.storeLogo}
+                onChange={(e) => setForm({ ...form, storeLogo: e.target.value })}
+                placeholder="https://example.com/logo.png or Google Drive link"
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+              />
+              {form.storeLogo && (
+                <div className="mt-2 w-16 h-16 rounded-lg overflow-hidden border border-[var(--color-border)]">
+                  <img src={form.storeLogo} alt="Logo" className="w-full h-full object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2 mb-1.5 text-sm font-medium text-slate-700">
+                <MapPin size={14} className="text-slate-400" />
+                Store Address
+              </label>
+              <textarea
+                value={form.storeAddress}
+                onChange={(e) => setForm({ ...form, storeAddress: e.target.value })}
+                placeholder="123 Main Street, City, State - PIN"
+                rows={2}
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none resize-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+              />
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2 mb-1.5 text-sm font-medium text-slate-700">
+                <Phone size={14} className="text-slate-400" />
+                Store Phone
+              </label>
+              <input
+                value={form.storePhone}
+                onChange={(e) => setForm({ ...form, storePhone: e.target.value })}
+                placeholder="+91 9876543210"
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">GST Number</label>
+                <input
+                  value={form.gstNumber}
+                  onChange={(e) => setForm({ ...form, gstNumber: e.target.value })}
+                  placeholder="e.g., 22AAAAA0000A1Z5"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">FSSAI Number</label>
+                <input
+                  value={form.fssaiNumber}
+                  onChange={(e) => setForm({ ...form, fssaiNumber: e.target.value })}
+                  placeholder="e.g., 10020011000123"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Currency */}
         <div>
           <label className="flex items-center gap-2 mb-1.5 text-sm font-medium text-slate-700">
@@ -134,6 +239,238 @@ export default function SettingsPage() {
               className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
             />
           </div>
+        </div>
+
+        {/* Payment Methods */}
+        <div>
+          <label className="flex items-center gap-2 mb-1.5 text-sm font-medium text-slate-700">
+            <CreditCard size={16} className="text-slate-400" />
+            Payment Methods
+          </label>
+          <div className="flex flex-wrap gap-3">
+            {[
+              { id: 'CASH', label: 'Cash' },
+              { id: 'CARD', label: 'Card' },
+              { id: 'UPI', label: 'UPI' },
+            ].map((method) => (
+              <button
+                key={method.id}
+                type="button"
+                onClick={() => {
+                  const methods = form.paymentMethods.includes(method.id)
+                    ? form.paymentMethods.filter((m) => m !== method.id)
+                    : [...form.paymentMethods, method.id];
+                  setForm({ ...form, paymentMethods: methods });
+                }}
+                className={`rounded-xl border-2 px-4 py-2.5 text-sm font-medium transition-all ${
+                  form.paymentMethods.includes(method.id)
+                    ? 'border-brand-500 bg-brand-50 text-brand-700'
+                    : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                }`}
+              >
+                {method.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* UPI ID */}
+        <div>
+          <label className="flex items-center gap-2 mb-1.5 text-sm font-medium text-slate-700">
+            <QrCode size={16} className="text-slate-400" />
+            UPI ID <span className="text-slate-400 font-normal">(for dynamic QR payments)</span>
+          </label>
+          <input
+            value={form.upiId}
+            onChange={(e) => setForm({ ...form, upiId: e.target.value })}
+            placeholder="yourname@upi or 9876543210@paytm"
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+          />
+        </div>
+
+        {/* Total Tables */}
+        <div>
+          <label className="flex items-center gap-2 mb-1.5 text-sm font-medium text-slate-700">
+            <UtensilsCrossed size={16} className="text-slate-400" />
+            Total Tables
+          </label>
+          <input
+            type="number"
+            min="0"
+            value={form.totalTables}
+            onChange={(e) => setForm({ ...form, totalTables: e.target.value })}
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+          />
+        </div>
+
+        {/* QR Ordering */}
+        <div className="border-t border-[var(--color-border)] pt-6">
+          <h3 className="flex items-center gap-2 text-base font-semibold text-slate-800 mb-4">
+            <Smartphone size={18} className="text-orange-500" />
+            QR Code Ordering
+          </h3>
+
+          <div className="flex items-center justify-between p-4 rounded-xl bg-[var(--color-surface-raised)] border border-[var(--color-border)] mb-4">
+            <div>
+              <p className="text-sm font-medium text-slate-700">Enable QR Ordering</p>
+              <p className="text-xs text-slate-400 mt-0.5">Allow customers to order by scanning table QR codes</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, qrOrderingEnabled: !form.qrOrderingEnabled })}
+              className={`relative w-12 h-6 rounded-full transition-colors ${
+                form.qrOrderingEnabled ? 'bg-green-500' : 'bg-slate-300'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                  form.qrOrderingEnabled ? 'translate-x-6' : ''
+                }`}
+              />
+            </button>
+          </div>
+
+          {form.qrOrderingEnabled && (
+            <div className="mt-4">
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">QR Ordering Mode</label>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, qrOrderingMode: 'order' })}
+                  className={`flex-1 p-3 rounded-xl border-2 text-left transition-all ${
+                    form.qrOrderingMode === 'order'
+                      ? 'border-brand-500 bg-brand-50'
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <p className={`text-sm font-semibold ${form.qrOrderingMode === 'order' ? 'text-brand-700' : 'text-slate-700'}`}>
+                    Accept Orders
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5">Customers can browse menu and place orders</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, qrOrderingMode: 'menu' })}
+                  className={`flex-1 p-3 rounded-xl border-2 text-left transition-all ${
+                    form.qrOrderingMode === 'menu'
+                      ? 'border-amber-500 bg-amber-50'
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <p className={`text-sm font-semibold ${form.qrOrderingMode === 'menu' ? 'text-amber-700' : 'text-slate-700'}`}>
+                    Menu Only
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5">Customers can view menu but must order at counter</p>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Geofencing */}
+        <div className="border-t border-[var(--color-border)] pt-6">
+          <h3 className="flex items-center gap-2 text-base font-semibold text-slate-800 mb-4">
+            <Shield size={18} className="text-blue-500" />
+            Geofencing Restriction
+          </h3>
+
+          <div className="flex items-center justify-between p-4 rounded-xl bg-[var(--color-surface-raised)] border border-[var(--color-border)] mb-4">
+            <div>
+              <p className="text-sm font-medium text-slate-700">Enable Geofencing</p>
+              <p className="text-xs text-slate-400 mt-0.5">Only allow orders from within restaurant area</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, geofenceEnabled: !form.geofenceEnabled })}
+              className={`relative w-12 h-6 rounded-full transition-colors ${
+                form.geofenceEnabled ? 'bg-green-500' : 'bg-slate-300'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                  form.geofenceEnabled ? 'translate-x-6' : ''
+                }`}
+              />
+            </button>
+          </div>
+
+          {form.geofenceEnabled && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="space-y-4"
+            >
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="flex items-center gap-2 mb-1.5 text-sm font-medium text-slate-700">
+                    <MapPin size={14} className="text-slate-400" />
+                    Latitude
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={form.restaurantLat}
+                    onChange={(e) => setForm({ ...form, restaurantLat: e.target.value })}
+                    placeholder="e.g., 28.6139"
+                    className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                  />
+                </div>
+                <div>
+                  <label className="flex items-center gap-2 mb-1.5 text-sm font-medium text-slate-700">
+                    <MapPin size={14} className="text-slate-400" />
+                    Longitude
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={form.restaurantLng}
+                    onChange={(e) => setForm({ ...form, restaurantLng: e.target.value })}
+                    placeholder="e.g., 77.2090"
+                    className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Allowed Radius (meters)
+                </label>
+                <select
+                  value={form.geofenceRadius}
+                  onChange={(e) => setForm({ ...form, geofenceRadius: e.target.value })}
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                >
+                  <option value={25}>25 meters</option>
+                  <option value={50}>50 meters</option>
+                  <option value={100}>100 meters</option>
+                  <option value={200}>200 meters</option>
+                  <option value={500}>500 meters</option>
+                </select>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                      (pos) => {
+                        setForm({
+                          ...form,
+                          restaurantLat: pos.coords.latitude.toFixed(6),
+                          restaurantLng: pos.coords.longitude.toFixed(6),
+                        });
+                      },
+                      () => alert('Could not get your location. Please enter coordinates manually.')
+                    );
+                  }
+                }}
+                className="flex items-center gap-2 text-sm text-brand-600 font-medium hover:text-brand-700"
+              >
+                <MapPin size={14} />
+                Use My Current Location
+              </button>
+            </motion.div>
+          )}
         </div>
 
         {/* Receipt Note */}

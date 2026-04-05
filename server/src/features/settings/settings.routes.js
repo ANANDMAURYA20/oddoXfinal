@@ -8,9 +8,12 @@ const controller = require("./settings.controller");
 
 const router = Router();
 
-router.use(auth, tenantIsolation, authorize("TENANT_ADMIN"));
+router.use(auth, tenantIsolation);
 
+// All authenticated tenant users can read settings (cashiers need UPI ID, tax rate, etc.)
 router.get("/", controller.getSettings);
-router.patch("/", validate(updateSettingsSchema), controller.updateSettings);
+
+// Only TENANT_ADMIN can update settings
+router.patch("/", authorize("TENANT_ADMIN"), validate(updateSettingsSchema), controller.updateSettings);
 
 module.exports = router;

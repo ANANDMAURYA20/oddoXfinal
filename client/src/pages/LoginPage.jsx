@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, ArrowRight, ShoppingCart } from 'lucide-react';
 import { motion } from 'framer-motion';
 import useAuthStore from '../stores/useAuthStore';
+import ForgotPasswordModal from '../components/auth/ForgotPasswordModal';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
   const { login, loading, error } = useAuthStore();
   const navigate = useNavigate();
 
@@ -15,7 +17,18 @@ export default function LoginPage() {
     e.preventDefault();
     const result = await login(email, password);
     if (result.success) {
-      navigate('/pos');
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser?.role === 'SUPER_ADMIN') {
+        navigate('/admin');
+      } else if (!result.onboardingCompleted) {
+        navigate('/onboarding');
+      } else if (currentUser?.role === 'KDS_STAFF') {
+        navigate('/kds');
+      } else if (currentUser?.role === 'TENANT_ADMIN') {
+        navigate('/dashboard');
+      } else {
+        navigate('/pos');
+      }
     }
   };
 
@@ -78,9 +91,18 @@ export default function LoginPage() {
 
             {/* Password */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                Password
-              </label>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="block text-sm font-medium text-slate-700">
+                  Password
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsForgotModalOpen(true)}
+                  className="text-xs font-medium text-brand-600 hover:text-brand-700"
+                >
+                  Forgot password?
+                </button>
+              </div>
               <div className="relative">
                 <input
                   id="login-password"
@@ -118,12 +140,25 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+
+          {/* Register link */}
+          <p className="mt-6 text-center text-sm text-slate-500">
+            Don't have an account?{' '}
+            <Link to="/register" className="font-semibold text-brand-600 hover:text-brand-700 transition-colors">
+              Create account
+            </Link>
+          </p>
         </div>
 
         <p className="mt-6 text-center text-xs text-slate-400">
           OddoPOS &copy; {new Date().getFullYear()} &middot; Powered by OddoXindus
         </p>
       </motion.div>
+
+      <ForgotPasswordModal
+        isOpen={isForgotModalOpen}
+        onClose={() => setIsForgotModalOpen(false)}
+      />
     </div>
   );
 }

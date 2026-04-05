@@ -136,10 +136,10 @@ export default function DashboardPage() {
               <Line
                 type="monotone"
                 dataKey="revenue"
-                stroke="#4f46e5"
+                stroke="var(--color-brand-600)"
                 strokeWidth={2.5}
-                dot={{ r: 4, fill: '#4f46e5', strokeWidth: 0 }}
-                activeDot={{ r: 6, fill: '#4f46e5', strokeWidth: 2, stroke: '#fff' }}
+                dot={{ r: 4, fill: 'var(--color-brand-600)', strokeWidth: 0 }}
+                activeDot={{ r: 6, fill: 'var(--color-brand-600)', strokeWidth: 2, stroke: '#fff' }}
               />
             </LineChart>
           </ResponsiveContainer>

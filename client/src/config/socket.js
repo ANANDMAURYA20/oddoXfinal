@@ -5,9 +5,20 @@ let socket = null;
 export const connectSocket = (token) => {
   if (socket?.connected) return socket;
 
-  socket = io('/', {
+  // If socket exists but is disconnected, clean it up and create a fresh one
+  if (socket) {
+    socket.removeAllListeners();
+    socket.disconnect();
+    socket = null;
+  }
+
+  socket = io(import.meta.env.VITE_SOCKET_URL || '/', {
     auth: { token },
     transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
   });
 
   socket.on('connect', () => {
