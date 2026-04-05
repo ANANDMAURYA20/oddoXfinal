@@ -15,6 +15,7 @@ const createOrderSchema = z.object({
 
 const updateOrderStatusSchema = z.object({
   status: z.enum(["PENDING", "PREPARING", "READY", "COMPLETED", "CANCELLED"]),
+  stationId: z.string().uuid().optional(),
 });
 
 module.exports = { createOrderSchema, updateOrderStatusSchema };
