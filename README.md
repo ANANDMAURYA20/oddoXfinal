@@ -3,6 +3,9 @@
 A full-stack, cloud-enabled **Point of Sale (POS)** and **Kitchen Display System (KDS)** built for restaurants. Supports multi-tenant architecture, real-time kitchen coordination, QR-based customer ordering, inventory management, and business analytics.
 
 **Live Demo:** [https://odoo.clipearn.fun](https://odoo.clipearn.fun)
+(Super admin)
+Email : admin@pos.com
+Password : 123456
 
 ---
 
