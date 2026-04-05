@@ -5,7 +5,7 @@ A full-stack, cloud-enabled **Point of Sale (POS)** and **Kitchen Display System
 **Live Demo:** [https://odoo.clipearn.fun](https://odoo.clipearn.fun)
 (Super admin)
 Email : admin@pos.com
-Password : 123456
+Password : 123456 (Default password for every user)
 
 ---
 
